@@ -1,0 +1,47 @@
+%\usepackage{theoremref}
+\usepackage{ stmaryrd }
+\usepackage{enumerate}
+\usepackage{amssymb}
+\usepackage{mathrsfs}
+\usepackage{mathabx}
+\usepackage{arydshln}
+\usepackage{mathdots}
+\usepackage{enumitem}
+\usepackage[nocompress]{cite}
+\usepackage{dsfont}
+\usepackage{bm}
+\usepackage{soul}
+\usepackage{bbold}
+\usepackage{blkarray}
+\usepackage{booktabs, bigstrut}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{rotating}
+\usepackage{subcaption}
+%\usepackage{upgreek}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{multirow}
+% \usepackage{algorithm}
+
+%\newtheorem{alg}[theorem]{Algorithm}
+
+\usepackage{xcolor}
+\definecolor{SVDcol}{RGB}{0,0,0}
+\definecolor{GECPMcol}{RGB}{199,240,160}
+\definecolor{GECPCcol}{RGB}{74,226,217}
+\definecolor{GEAPCcol}{RGB}{87,135,255}
+
+
+
+
+
+\newtheorem{alg}{Algorithm}
+%\newcommand{\alginout}[2]{\newline\begin{minipage}[t]{.5\linewidth}{\sc{In:}} #1 \hfill \end{minipage}\begin{minipage}[t]{.5\linewidth} {\sc{Out:}} #2 \hfill \end{minipage}}
+%\newcommand{\alginout}[2]{\newline{\sc{In:}} #1 \newline{\sc{Out:}} #2}
+\newlength{\alginwidth}
+\settowidth{\alginwidth}{\sc{In: }}
+\newlength{\algoutwidth}
+\settowidth{\algoutwidth}{\sc{Out: }}
+\newcommand{\alginout}[2]{\newline\indent\hspace{.4cm}\hspace{-\alginwidth}{\sc{In: }}#1 \newline\indent\hspace{.4cm}\hspace{-\algoutwidth}{\sc{Out: }}#2}
+

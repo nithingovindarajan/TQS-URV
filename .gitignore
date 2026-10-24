@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+._*
+
+# LaTeX build directories
+build/
+
+# LaTeX auxiliary files
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.brf
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex
+*.synctex.gz
+*.synctex(busy)
+*.thm
+*.toc
+*.vrb
+*.xdv
+*.dvi
+
+# Julia
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+deps/build.log
+deps/deps.jl
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~

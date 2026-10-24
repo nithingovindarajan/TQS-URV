@@ -1,0 +1,64 @@
+% SIAM Shared Information Template
+% This is information that is shared between the main document and any
+% supplement. If no supplement is required, then this information can
+% be included directly in the main document.
+
+
+% Packages and macros go here
+\usepackage{color}
+\usepackage{lipsum}
+\usepackage{amsfonts}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{epstopdf}
+\usepackage{calc}
+\ifpdf
+  \DeclareGraphicsExtensions{.eps,.pdf,.png,.jpg}
+\else
+  \DeclareGraphicsExtensions{.eps}
+\fi
+
+% Add a serial/Oxford comma by default.
+\newcommand{\creflastconjunction}{, and~}
+
+% Used for creating new theorem and remark environments
+\newsiamremark{remark}{Remark}
+\newsiamremark{hypothesis}{Hypothesis}
+\crefname{hypothesis}{Hypothesis}{Hypotheses}
+\newsiamthm{claim}{Claim}
+
+% Sets running headers as well as PDF title and authors
+\headers{Tree quasi-separable matrices}{Govindarajan, Chandrasekaran, Dewilde}
+
+% Title. If the supplement option is on, then "Supplementary Material"
+% is automatically inserted before the title.
+\title{Tree quasi-separable matrices: a simultaneous generalization of sequentially and hierarchically semi-separable representations
+% \thanks{Submitted to the editors on {XXX Xth, 202X}.
+% %\funding{NO FUNDING}
+% }
+}
+
+% Authors: full names plus addresses.
+\author{Nithin Govindarajan\thanks{{Postdoctoral researcher, Electrical Eng. (ESAT), KU Leuven, Leuven, Belgium
+  (\email{nithin.govindarajan@kuleuven.be})}}
+  \and Shivkumar Chandrasekaran\thanks{Professor, Electrical and Computer Eng., University of California Santa Barbara, CA, United States
+  (\email{shiv@ucsb.edu})} 
+  \and
+  Patrick Dewilde \thanks{Professor Emeritus, Electrical Engineering, Mathematics and Computer Science, TU Delft, Delft, The Netherlands and Institute of Advanced Study, Technical University Munich, Germany.
+  (\email{p.dewilde@me.com})} 
+  }
+
+
+
+
+
+
+\usepackage{amsopn}
+\DeclareMathOperator{\diag}{diag}
+
+
+%%% Local Variables: 
+%%% mode:latex
+%%% TeX-master: "ex_article"
+%%% End: 
