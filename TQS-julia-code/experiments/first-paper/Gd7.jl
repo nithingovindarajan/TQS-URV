@@ -1,5 +1,5 @@
-# Construction of TQS matrix for the example graph G_c(5) in the paper
-include("TQSMatrices.jl")
+# Construction of TQS matrix for the example graph G_d(7) in the paper
+include(joinpath(@__DIR__, "..", "..", "src", "TQSMatrices.jl"))
 using .TQSMatrices
 using LinearAlgebra
 using Statistics

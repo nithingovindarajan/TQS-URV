@@ -1,4 +1,4 @@
-include("TQSMatrices.jl")
+include(joinpath(@__DIR__, "..", "src", "TQSMatrices.jl"))
 using .TQSMatrices
 using LinearAlgebra
 using Test

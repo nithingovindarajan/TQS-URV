@@ -1,5 +1,5 @@
-# Construction of TQS matrix for the example graph G_a(4) in the paper
-include("TQSMatrices.jl")
+# Construction of TQS matrix for the example graph G_b(4) in the paper
+include(joinpath(@__DIR__, "..", "..", "src", "TQSMatrices.jl"))
 using .TQSMatrices
 using LinearAlgebra
 using Statistics
@@ -8,7 +8,7 @@ using Random
 # set seed for experiments
 Random.seed!(1234);
 
-# graph G_a(4):
+# graph G_b(4):
 #         1 -- 2 -- 3 -- 4 
 
 # root node

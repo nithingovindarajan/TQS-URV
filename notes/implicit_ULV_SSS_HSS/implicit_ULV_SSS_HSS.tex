@@ -109,12 +109,12 @@ A $4\times4$ SSS matrix is
 \begin{equation}
 \label{eq:sss}
 A =
-\begin{pmatrix}
-D_1 & U_1V_2\ct & U_1W_2V_3\ct & U_1W_2W_3V_4\ct \\[2pt]
-P_2Q_1\ct & D_2 & U_2V_3\ct & U_2W_3V_4\ct \\[2pt]
-P_3R_2Q_1\ct & P_3Q_2\ct & D_3 & U_3V_4\ct \\[2pt]
+\left(\begin{array}{c|c|c|c}
+D_1 & U_1V_2\ct & U_1W_2V_3\ct & U_1W_2W_3V_4\ct \\[2pt]\hline
+P_2Q_1\ct & D_2 & U_2V_3\ct & U_2W_3V_4\ct \\[2pt]\hline
+P_3R_2Q_1\ct & P_3Q_2\ct & D_3 & U_3V_4\ct \\[2pt]\hline
 P_4R_3R_2Q_1\ct & P_4R_3Q_2\ct & P_4Q_3\ct & D_4
-\end{pmatrix}.
+\end{array}\right).
 \end{equation}
 The pattern is easy to read off:
 \begin{itemize}
@@ -136,7 +136,7 @@ solve the slightly more general system
 \begin{equation}
 \label{eq:sss-system}
 A\,x \;=\; b \;-\;
-\begin{pmatrix} 0\\ P_2\\ P_3R_2\\ P_4R_3R_2 \end{pmatrix}\tau ,
+\left(\begin{array}{c} 0\\[2pt]\hline P_2\\[2pt]\hline P_3R_2\\[2pt]\hline P_4R_3R_2 \end{array}\right)\tau ,
 \end{equation}
 with $\tau=0$ at the start. Compare the coefficient of $\tau$ with the first
 block column of~\eqref{eq:sss}. It is exactly the strictly lower part of that
@@ -207,18 +207,18 @@ After both transformations the system reads (block sizes are
 $m_1-k_1,\,k_1,\,m_2,\,m_3,\,m_4$):
 \begin{equation}
 \label{eq:sss-after}
-\begin{pmatrix}
+\left(\begin{array}{cc|c|c|c}
 \color{red!70!black}D_{11} & 0 & 0 & 0 & 0\\[2pt]
-D_{21} & D_{22} & \hU_1V_2\ct & \hU_1W_2V_3\ct & \hU_1W_2W_3V_4\ct\\[2pt]
-P_2Q_{11}\ct & P_2\hQ_1\ct & D_2 & U_2V_3\ct & U_2W_3V_4\ct\\[2pt]
-P_3R_2Q_{11}\ct & P_3R_2\hQ_1\ct & P_3Q_2\ct & D_3 & U_3V_4\ct\\[2pt]
+D_{21} & D_{22} & \hU_1V_2\ct & \hU_1W_2V_3\ct & \hU_1W_2W_3V_4\ct\\[2pt]\hline
+P_2Q_{11}\ct & P_2\hQ_1\ct & D_2 & U_2V_3\ct & U_2W_3V_4\ct\\[2pt]\hline
+P_3R_2Q_{11}\ct & P_3R_2\hQ_1\ct & P_3Q_2\ct & D_3 & U_3V_4\ct\\[2pt]\hline
 P_4R_3R_2Q_{11}\ct & P_4R_3R_2\hQ_1\ct & P_4R_3Q_2\ct & P_4Q_3\ct & D_4
-\end{pmatrix}
-\begin{pmatrix} z_1\\ \hx_1\\ x_2\\ x_3\\ x_4\end{pmatrix}
+\end{array}\right)
+\left(\begin{array}{c} z_1\\[2pt] \hx_1\\[2pt]\hline x_2\\[2pt]\hline x_3\\[2pt]\hline x_4\end{array}\right)
 =
-\begin{pmatrix} \beta_1\\ \gamma_1\\ b_2\\ b_3\\ b_4\end{pmatrix}
+\left(\begin{array}{c} \beta_1\\[2pt] \gamma_1\\[2pt]\hline b_2\\[2pt]\hline b_3\\[2pt]\hline b_4\end{array}\right)
 -
-\begin{pmatrix} 0\\ 0\\ P_2\\ P_3R_2\\ P_4R_3R_2\end{pmatrix}\tau .
+\left(\begin{array}{c} 0\\[2pt] 0\\[2pt]\hline P_2\\[2pt]\hline P_3R_2\\[2pt]\hline P_4R_3R_2\end{array}\right)\tau .
 \end{equation}
 
 \subsubsection*{Step 3: solve the triangular system}
@@ -250,17 +250,17 @@ later rows is summarized by a vector $\htau$ of small size. We never touch rows 
 
 Drop the first $m_1-k_1$ rows and columns. What remains is
 \[
-\begin{pmatrix}
-D_{22} & \hU_1V_2\ct & \hU_1W_2V_3\ct & \hU_1W_2W_3V_4\ct\\[2pt]
-P_2\hQ_1\ct & D_2 & U_2V_3\ct & U_2W_3V_4\ct\\[2pt]
-P_3R_2\hQ_1\ct & P_3Q_2\ct & D_3 & U_3V_4\ct\\[2pt]
+\left(\begin{array}{c|c|c|c}
+D_{22} & \hU_1V_2\ct & \hU_1W_2V_3\ct & \hU_1W_2W_3V_4\ct\\[2pt]\hline
+P_2\hQ_1\ct & D_2 & U_2V_3\ct & U_2W_3V_4\ct\\[2pt]\hline
+P_3R_2\hQ_1\ct & P_3Q_2\ct & D_3 & U_3V_4\ct\\[2pt]\hline
 P_4R_3R_2\hQ_1\ct & P_4R_3Q_2\ct & P_4Q_3\ct & D_4
-\end{pmatrix}
-\begin{pmatrix} \hx_1\\ x_2\\ x_3\\ x_4\end{pmatrix}
+\end{array}\right)
+\left(\begin{array}{c} \hx_1\\[2pt]\hline x_2\\[2pt]\hline x_3\\[2pt]\hline x_4\end{array}\right)
 =
-\begin{pmatrix} \hb_1\\ b_2\\ b_3\\ b_4\end{pmatrix}
+\left(\begin{array}{c} \hb_1\\[2pt]\hline b_2\\[2pt]\hline b_3\\[2pt]\hline b_4\end{array}\right)
 -
-\begin{pmatrix} 0\\ P_2\\ P_3R_2\\ P_4R_3R_2\end{pmatrix}\htau ,
+\left(\begin{array}{c} 0\\[2pt]\hline P_2\\[2pt]\hline P_3R_2\\[2pt]\hline P_4R_3R_2\end{array}\right)\htau ,
 \]
 which is again of the form~\eqref{eq:sss-system}. Only the first block has
 changed, and it has shrunk from $m_1$ to $k_1$ rows and columns. The update of
@@ -336,21 +336,21 @@ first two block rows and columns into one block. Rewriting~\eqref{eq:sss-system}
 $2\times2$ leading block grouped gives
 \[
 \left(
-\begin{array}{c|cc}
+\begin{array}{c|c|c}
 \begin{pmatrix} D_1 & U_1V_2\ct\\ P_2Q_1\ct & D_2\end{pmatrix} &
 \begin{pmatrix} U_1W_2\\ U_2\end{pmatrix}V_3\ct &
 \begin{pmatrix} U_1W_2\\ U_2\end{pmatrix}W_3V_4\ct\\[10pt]\hline
-P_3\begin{pmatrix} Q_1R_2\ct\\ Q_2\end{pmatrix}\ct & D_3 & U_3V_4\ct\\[10pt]
+P_3\begin{pmatrix} Q_1R_2\ct\\ Q_2\end{pmatrix}\ct & D_3 & U_3V_4\ct\\[10pt]\hline
 P_4R_3\begin{pmatrix} Q_1R_2\ct\\ Q_2\end{pmatrix}\ct & P_4Q_3\ct & D_4
 \end{array}
 \right)
-\begin{pmatrix} \begin{pmatrix}x_1\\x_2\end{pmatrix}\\ x_3\\ x_4\end{pmatrix}
+\left(\begin{array}{c} \begin{pmatrix}x_1\\x_2\end{pmatrix}\\[10pt]\hline x_3\\[10pt]\hline x_4\end{array}\right)
 \]
 \[
 \qquad\qquad=
-\begin{pmatrix} \begin{pmatrix}b_1\\ b_2-P_2\tau\end{pmatrix}\\ b_3\\ b_4\end{pmatrix}
+\left(\begin{array}{c} \begin{pmatrix}b_1\\ b_2-P_2\tau\end{pmatrix}\\[10pt]\hline b_3\\[10pt]\hline b_4\end{array}\right)
 -
-\begin{pmatrix} 0\\ P_3\\ P_4R_3\end{pmatrix}(R_2\tau).
+\left(\begin{array}{c} 0\\[2pt]\hline P_3\\[2pt]\hline P_4R_3\end{array}\right)(R_2\tau).
 \]
 This is a $3\times3$ SSS system of the form~\eqref{eq:sss-system} with
 \[
@@ -472,23 +472,23 @@ V_\beta = \begin{pmatrix} V_3W_3\\ V_4W_4\end{pmatrix}.
 \end{equation}
 The matrix is
 \[
-A=\begin{pmatrix}
+A=\left(\begin{array}{c|c}
 \begin{pmatrix} D_1 & U_1B_{12}V_2\ct\\ U_2B_{21}V_1\ct & D_2\end{pmatrix} &
-U_\alpha B_{\alpha\beta}V_\beta\ct\\[12pt]
+U_\alpha B_{\alpha\beta}V_\beta\ct\\[12pt]\hline
 U_\beta B_{\beta\alpha}V_\alpha\ct &
 \begin{pmatrix} D_3 & U_3B_{34}V_4\ct\\ U_4B_{43}V_3\ct & D_4\end{pmatrix}
-\end{pmatrix},
+\end{array}\right),
 \]
 and written out block by block, using~\eqref{eq:nested},
 \begin{equation}
 \label{eq:hss}
 A=
-\begin{pmatrix}
-D_1 & U_1B_{12}V_2\ct & U_1R_1B_{\alpha\beta}W_3\ct V_3\ct & U_1R_1B_{\alpha\beta}W_4\ct V_4\ct\\[2pt]
-U_2B_{21}V_1\ct & D_2 & U_2R_2B_{\alpha\beta}W_3\ct V_3\ct & U_2R_2B_{\alpha\beta}W_4\ct V_4\ct\\[2pt]
-U_3R_3B_{\beta\alpha}W_1\ct V_1\ct & U_3R_3B_{\beta\alpha}W_2\ct V_2\ct & D_3 & U_3B_{34}V_4\ct\\[2pt]
+\left(\begin{array}{c|c|c|c}
+D_1 & U_1B_{12}V_2\ct & U_1R_1B_{\alpha\beta}W_3\ct V_3\ct & U_1R_1B_{\alpha\beta}W_4\ct V_4\ct\\[2pt]\hline
+U_2B_{21}V_1\ct & D_2 & U_2R_2B_{\alpha\beta}W_3\ct V_3\ct & U_2R_2B_{\alpha\beta}W_4\ct V_4\ct\\[2pt]\hline
+U_3R_3B_{\beta\alpha}W_1\ct V_1\ct & U_3R_3B_{\beta\alpha}W_2\ct V_2\ct & D_3 & U_3B_{34}V_4\ct\\[2pt]\hline
 U_4R_4B_{\beta\alpha}W_1\ct V_1\ct & U_4R_4B_{\beta\alpha}W_2\ct V_2\ct & U_4B_{43}V_3\ct & D_4
-\end{pmatrix}.
+\end{array}\right).
 \end{equation}
 
 \begin{figure}[!htb]
@@ -715,13 +715,13 @@ $3,4$ into $\beta$:
 \]
 and similarly for $\beta$. The system becomes the one-level HSS system
 \[
-\begin{pmatrix}
-\hD_\alpha & \hU_\alpha B_{\alpha\beta}\hV_\beta\ct\\[2pt]
+\left(\begin{array}{c|c}
+\hD_\alpha & \hU_\alpha B_{\alpha\beta}\hV_\beta\ct\\[2pt]\hline
 \hU_\beta B_{\beta\alpha}\hV_\alpha\ct & \hD_\beta
-\end{pmatrix}
-\begin{pmatrix} \hx_\alpha\\ \hx_\beta\end{pmatrix}
+\end{array}\right)
+\left(\begin{array}{c} \hx_\alpha\\[2pt]\hline \hx_\beta\end{array}\right)
 =
-\begin{pmatrix} \hb_\alpha\\ \hb_\beta\end{pmatrix},
+\left(\begin{array}{c} \hb_\alpha\\[2pt]\hline \hb_\beta\end{array}\right),
 \qquad
 \hx_\alpha = \begin{pmatrix}\hx_1\\ \hx_2\end{pmatrix},\ \
 \hb_\alpha = \begin{pmatrix}\hb_1\\ \hb_2\end{pmatrix},

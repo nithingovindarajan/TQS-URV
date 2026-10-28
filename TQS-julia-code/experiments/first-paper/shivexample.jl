@@ -1,11 +1,10 @@
-# Shiv's example
-include("TQSMatrices.jl")
+# Shiv's example: a variant of regularbinarytree.jl with extra nonzero
+# off-diagonal blocks, showing Hankel blocks of rank 2 (state dimension 2) on some edges.
+include(joinpath(@__DIR__, "..", "..", "src", "TQSMatrices.jl"))
 using .TQSMatrices
 using LinearAlgebra
 using Statistics
 using Random
-using Plots
-using SparseArrays
 
 # set seed for experiments
 Random.seed!(1236);
@@ -16,7 +15,8 @@ tol = 1E-10
 ρ_max = Inf
 
 
-# function to construct inverse of re
+# Builds a random matrix whose graph is a regular binary tree with 2^k - 1 nodes
+# (each node owns a 1x1 block). Returns the matrix, the root node, and the adjacency list.
 _offset_nodes(adj_list, offset) = Dict(k + offset => adj_list[k] .+ offset for k ∈ keys(adj_list))
 function _random_regularbinarytreematrix(k::Int)
 	if k <= 0

@@ -1,12 +1,10 @@
 # Construction of TQS matrix for (the inverse of) the sequence of matrices T1, T2, 
 # T3, etc. in Section 3.5 of the paper
-include("TQSMatrices.jl")
+include(joinpath(@__DIR__, "..", "..", "src", "TQSMatrices.jl"))
 using .TQSMatrices
 using LinearAlgebra
 using Statistics
 using Random
-using Plots
-using SparseArrays
 
 # set seed for experiments
 Random.seed!(1236);
@@ -17,7 +15,8 @@ tol = 1E-10
 ρ_max = Inf
 
 
-# function to construct inverse of re
+# Builds a random matrix whose graph is a regular binary tree with 2^k - 1 nodes
+# (each node owns a 1x1 block). Returns the matrix, the root node, and the adjacency list.
 _offset_nodes(adj_list, offset) = Dict(k + offset => adj_list[k] .+ offset for k ∈ keys(adj_list))
 function _random_regularbinarytreematrix(k::Int)
 	if k <= 0
