@@ -46,7 +46,7 @@ module TQSMatrices
 # exports #
 ###########
 export ZeroMatrix, Spinner, GIRS_is_consistent, TQSMatrix, IndexedVector, IndexedMatrix
-export is_a_tree, GIRS_has_no_bounce_back_operators, construct_tree
+export is_connected_acyclic, GIRS_has_no_bounce_back_operators, construct_tree
 export GraphPartitionedMatrix, get_block, get_hankelblock, StateGraph, TransGraph
 export construct_range_vec, HankelFactorization, Xblock, Yblock
 export lowrankapprox, relative_error

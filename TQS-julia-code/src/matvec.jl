@@ -44,11 +44,11 @@ The matrix form applies the vector product to every column of `X`.
 function Base.:*(T::TQSMatrix, x::Vector, tree::Tree)
 
 	#check input correctness
-	@assert T.N == length(x)
+	@assert size(T, 2) == length(x)
 
 	# pre-allocate memory
 	type_b = promote_type(eltype(T), eltype(x))
-	b = Vector{type_b}(undef, T.M)
+	b = Vector{type_b}(undef, size(T, 1))
 	h = StateGraph{type_b}(T)
 
 	# diagonal stage
@@ -103,7 +103,7 @@ Form the dense `M × N` matrix by multiplying `T` with the identity. This is
 meant for testing and error checks only.
 """
 function Base.:Matrix(T::TQSMatrix, tree::Tree)
-	return *(T, Matrix{eltype(T)}(I, T.N, T.N), tree)
+	return *(T, Matrix{eltype(T)}(I, size(T, 2), size(T, 2)), tree)
 end
 
 

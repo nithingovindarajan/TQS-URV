@@ -14,6 +14,10 @@ transition operators `trans[i, i]` of a spinner (see
 struct ZeroMatrix{Scalar <: Number} <: AbstractMatrix{Scalar}
 	m::Int
 	n::Int
+	function ZeroMatrix{Scalar}(m, n) where {Scalar <: Number}
+		@assert m >= 0 && n >= 0
+		new{Scalar}(m, n)
+	end
 end
 ZeroMatrix(m, n) = ZeroMatrix{Float64}(m, n)
 Base.:size(A::ZeroMatrix) = (A.m, A.n)
@@ -54,6 +58,7 @@ end
 #################
 
 """
+	IndexedMatrix{T}(array, labels, index_map)
 	IndexedMatrix{T}(array, labels)
 	IndexedMatrix{T}(labels)
 	IndexedMatrix{T}(A::IndexedMatrix)
@@ -63,25 +68,33 @@ Square matrix whose rows and columns are both indexed by node labels.
 that entry of the underlying `array`. It stores a spinner's transition
 operators, where `trans[k, l]` is itself a matrix.
 
-- `IndexedMatrix{T}(array, labels)`: wrap the square `array` (converted to `Matrix{T}`).
+- `IndexedMatrix{T}(array, labels, index_map)`: the inner constructor. It takes
+  every field and only checks them: `array` is square with one row per label, the
+  labels are unique, and `index_map[labels[k]] == k`.
+- `IndexedMatrix{T}(array, labels)`: wrap the square `array` (converted to
+  `Matrix{T}`), building `index_map` from `labels`.
 - `IndexedMatrix{T}(labels)`: create an uninitialised matrix to fill in later.
 - `IndexedMatrix{T}(A)`: recast an existing `IndexedMatrix` to element type `T`.
+
+# Fields
+- `array`: the underlying `N × N` matrix, with `N = length(labels)`.
+- `labels`: the node label of each row/column of `array`.
+- `index_map`: maps a label to its position in `labels` (a cache).
 """
 struct IndexedMatrix{T <: Any}
 	array::Matrix{T}
 	labels::Vector{Int}
 	index_map::Dict{Int, Int}
-	N::Int
-	function IndexedMatrix{T}(array, labels) where {T <: Any}
-		@assert size(array, 1) == size(array, 2)
-		@assert size(array, 1) == length(labels)
-		new{T}(
-			convert(Matrix{T}, array),
-			labels,
-			Dict(label => i for (i, label) ∈ enumerate(labels)),
-			size(array, 1)::Int,
-		)
+	function IndexedMatrix{T}(array, labels, index_map) where {T <: Any}
+		@assert size(array, 1) == size(array, 2) == length(labels)
+		@assert allunique(labels)
+		@assert index_map == Dict(label => i for (i, label) ∈ enumerate(labels))
+		new{T}(convert(Matrix{T}, array), labels, index_map)
 	end
+end
+function IndexedMatrix{T}(array, labels) where {T <: Any}
+	index_map = Dict(label => i for (i, label) ∈ enumerate(labels))
+	return IndexedMatrix{T}(array, labels, index_map)
 end
 Base.:getindex(A::IndexedMatrix, i, j) = A.array[A.index_map[i], A.index_map[j]]
 function Base.:setindex!(A::IndexedMatrix, val, i, j)
@@ -94,5 +107,5 @@ function IndexedMatrix{T}(labels::Vector{Int}) where {T <: Any} # creates an und
 	N = length(labels)
 	return IndexedMatrix{T}(Array{T}(undef, N, N), labels)
 end
-Base.:size(A::IndexedMatrix) = (A.N, A.N)
+Base.:size(A::IndexedMatrix) = (length(A.labels), length(A.labels))
 Base.:size(A::IndexedMatrix, i) = size(A)[i]

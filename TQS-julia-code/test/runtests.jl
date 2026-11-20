@@ -92,7 +92,7 @@ n = [11, 13, 15, 17, 19]
 M = sum(m)
 N = sum(n)
 adjacency_list = Dict{Int, Vector{Int}}()
-adjacency_list[1] = [2, 3]
+adjacency_list[1] = [2, 3, 5]
 adjacency_list[2] = [1]
 adjacency_list[3] = [1]
 adjacency_list[4] = [5]
@@ -398,12 +398,12 @@ nodeset_cyclic = IndexedVector{Spinner}([node1, node2, node3, node4, node5])
 @test !GIRS_has_no_bounce_back_operators(nodeset_cyclic)
 
 #######################################
-# Test: Checking if a graph is a tree #
+# Test: graph connected and acyclic   #
 #######################################
 adj_list_nodeset_acyclic = Dict(s.id => s.neighbors for s in values(nodeset_acyclic))
 adj_list_nodeset_cyclic = Dict(s.id => s.neighbors for s in values(nodeset_cyclic))
-@test is_a_tree(adj_list_nodeset_acyclic)
-@test !is_a_tree(adj_list_nodeset_cyclic)
+@test is_connected_acyclic(adj_list_nodeset_acyclic)
+@test !is_connected_acyclic(adj_list_nodeset_cyclic)
 
 ##################################
 # Test: determine tree hierarchy #
@@ -616,10 +616,10 @@ stategraph = StateGraph{Float64}(T);
 # Test: TQS matrix vector and TQS to dense #
 ############################################
 
-x = randn(T.N)
+x = randn(size(T, 2))
 @test *(T, x, tree) ≈ Tdense * x
 
-X = randn(T.N, 30)
+X = randn(size(T, 2), 30)
 @test *(T, X, tree) ≈ Tdense * X
 
 @test Matrix(T, tree) ≈ Tdense
@@ -659,3 +659,42 @@ tol = 1E-12
 TG_TQS, tree = TQSMatrix(TG, root, tol, ρ_max);
 
 @test Matrix(TG_TQS, tree) ≈ Tdense
+
+###########################################################
+# Test: inner constructors take the fields and check them #
+###########################################################
+
+# rebuild `x` from its fields, optionally replacing field `name` by `val`
+fields(x) = [getfield(x, f) for f ∈ fieldnames(typeof(x))]
+rebuild(x, name = nothing, val = nothing) =
+	typeof(x)([f == name ? val : getfield(x, f) for f ∈ fieldnames(typeof(x))]...)
+
+# ZeroMatrix
+@test_throws AssertionError ZeroMatrix(-1, 2)
+
+# IndexedMatrix
+IM = IndexedMatrix{Float64}(rand(3, 3), [7, 8, 9])
+@test fields(rebuild(IM)) == fields(IM)
+@test_throws AssertionError rebuild(IM, :index_map, Dict(7 => 2, 8 => 1, 9 => 3))
+@test_throws AssertionError IndexedMatrix{Float64}(rand(3, 3), [7, 7, 9])
+
+# GraphPartitionedMatrix
+@test fields(rebuild(A)) == fields(A)
+@test_throws AssertionError rebuild(A, :mrange, IndexedVector{UnitRange}(k => 1:1 for k ∈ A.nodes))
+@test_throws AssertionError rebuild(A, :m, IndexedVector{Int}(k => 1 for k ∈ A.nodes))
+
+# TQSMatrix
+@test fields(rebuild(T)) == fields(T)
+@test_throws AssertionError rebuild(T, :m, IndexedVector{Int}(k => T.m[k] + 1 for k ∈ keys(T.m)))
+@test_throws AssertionError rebuild(T, :node_ordering, reverse(T.node_ordering))  # stale mrange
+
+# Tree
+@test fields(rebuild(tree)) == fields(tree)
+@test_throws AssertionError rebuild(tree, :tree_depth, tree.tree_depth + 1)
+@test_throws AssertionError rebuild(tree, :root, first(tree.children[tree.root]))
+@test_throws AssertionError rebuild(tree, :levels, reverse(tree.levels))
+
+# HankelFactorization
+@test fields(rebuild(H)) == fields(H)
+@test_throws AssertionError rebuild(H, :in_nodes, reverse(H.in_nodes))
+@test_throws AssertionError rebuild(H, :Y, H.Y[:, 2:end])

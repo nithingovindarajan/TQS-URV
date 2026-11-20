@@ -4,12 +4,13 @@
 
 """
 	GraphPartitionedMatrix(mat, nodes, m, n, adjacency_list)
+	GraphPartitionedMatrix{Scalar}(mat, nodes, adjacency_list, m, n, mrange, nrange)
 
 A dense matrix `mat` whose rows and columns are partitioned into blocks, one per
 graph node. This is the input format for the TQS construction algorithm
 `TQSMatrix(A, root, tol, ρ_max)`.
 
-# Arguments
+# Arguments (convenience constructor)
 - `mat`: the `M × N` dense matrix.
 - `nodes`: node labels, in the order their blocks appear in `mat`.
 - `m`, `n`: block row/column sizes, given as vectors aligned with `nodes`.
@@ -18,8 +19,15 @@ graph node. This is the input format for the TQS construction algorithm
   It must be symmetric and contain every node.
 
 # Fields
-In addition to the inputs, it stores `K` (number of nodes), the per-node sizes
-`m`/`n` as `IndexedVector`s, and the index ranges `mrange`/`nrange`.
+- `mat`: the `M × N` dense matrix.
+- `nodes`: node labels, in block order.
+- `adjacency_list`: the neighbours of each node.
+- `m`, `n`: block row/column size of each node (`IndexedVector{Int}`).
+- `mrange`, `nrange`: row/column index range of each node in `mat` (a cache;
+  `mrange == construct_range_vec(m, nodes)`).
+
+The inner constructor takes every field and only checks that they are
+consistent. The number of nodes is `length(A.nodes)` and the size is `size(A)`.
 
 See also [`get_block`](@ref) and [`get_hankelblock`](@ref).
 """
@@ -27,54 +35,60 @@ struct GraphPartitionedMatrix{Scalar <: Number}
 	mat::AbstractMatrix{Scalar}
 	# graph attributes
 	nodes::Vector{Int}
-	K::Int
 	adjacency_list::IndexedVector{Vector{Int}}
+	# block sizes
+	m::IndexedVector{Int}
+	n::IndexedVector{Int}
 	# mapping between nodes and matrix entries
 	mrange::IndexedVector{UnitRange}
 	nrange::IndexedVector{UnitRange}
-	# dimensions
-	m::IndexedVector{Int}
-	n::IndexedVector{Int}
-	M::Int
-	N::Int
 	function GraphPartitionedMatrix{Scalar}(
 		mat,
 		nodes,
+		adjacency_list,
 		m,
 		n,
-		adjacency_list,
+		mrange,
+		nrange,
 	) where {Scalar <: Number}
-		@assert length(m) == length(n) == length(nodes)
-		@assert sum(values(m)) == size(mat, 1)
-		@assert sum(values(n)) == size(mat, 2)
-		@assert length(Set(nodes)) == length(nodes)
-		@assert all([haskey(adjacency_list, node) for node ∈ nodes])
-		@assert length(keys(adjacency_list)) == length(nodes)
-		for neighbors ∈ values(adjacency_list)
-			for n ∈ neighbors
-				@assert haskey(adjacency_list, n)
+		# graph
+		@assert allunique(nodes)
+		@assert Set(keys(adjacency_list)) == Set(nodes)
+		for (node, neighbors) ∈ adjacency_list
+			for neighbor ∈ neighbors
+				@assert haskey(adjacency_list, neighbor)
+				@assert node ∈ adjacency_list[neighbor]  # symmetric
 			end
 		end
+		# block sizes
+		@assert Set(keys(m)) == Set(keys(n)) == Set(nodes)
+		@assert sum(values(m)) == size(mat, 1)
+		@assert sum(values(n)) == size(mat, 2)
+		# ranges
+		@assert mrange == construct_range_vec(m, nodes)
+		@assert nrange == construct_range_vec(n, nodes)
 
-		K = length(nodes)
-		M = size(mat, 1)
-		N = size(mat, 2)
-
-		# m and n
-		m = IndexedVector{Int}(m, nodes)
-		n = IndexedVector{Int}(n, nodes)
-
-		# construct ranges
-		mrange = construct_range_vec(m, nodes)
-		nrange = construct_range_vec(n, nodes)
-
-		# construct 
-		new{Scalar}(mat, nodes, K, adjacency_list, mrange, nrange, m, n, M, N)
+		new{Scalar}(mat, nodes, adjacency_list, m, n, mrange, nrange)
 	end
+end
+function GraphPartitionedMatrix{Scalar}(
+	mat,
+	nodes,
+	m::AbstractVector,
+	n::AbstractVector,
+	adjacency_list,
+) where {Scalar <: Number}
+	@assert length(m) == length(n) == length(nodes)
+	m = IndexedVector{Int}(m, nodes)
+	n = IndexedVector{Int}(n, nodes)
+	mrange = construct_range_vec(m, nodes)
+	nrange = construct_range_vec(n, nodes)
+	return GraphPartitionedMatrix{Scalar}(mat, nodes, adjacency_list, m, n, mrange, nrange)
 end
 GraphPartitionedMatrix(mat, nodes, m, n, adjacency_list) =
 	GraphPartitionedMatrix{eltype(mat)}(mat, nodes, m, n, adjacency_list)
-Base.:size(A::GraphPartitionedMatrix) = (A.M, A.N)
+Base.:size(A::GraphPartitionedMatrix) = size(A.mat)
+Base.:size(A::GraphPartitionedMatrix, d) = size(A.mat, d)
 Base.:getindex(A::GraphPartitionedMatrix, i::Int, j::Int) = A.mat[i, j]
 Base.eltype(A::GraphPartitionedMatrix) = typeof(A).parameters[1]
 """

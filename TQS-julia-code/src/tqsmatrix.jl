@@ -7,13 +7,16 @@
 	TQSMatrix(spinners::IndexedVector{Spinner}, node_ordering)
 	TQSMatrix{Scalar}(trans, inp, out, D, node_ordering)
 	TQSMatrix(A::GraphPartitionedMatrix, root, tol, ρ_max) -> (T, tree, ρ)
+	TQSMatrix{Scalar}(spinners, node_ordering, adjacency_list, m, n, mrange, nrange)
 
 A Tree Quasi-Separable matrix, stored as one [`Spinner`](@ref) per node of a tree.
 
-The constructors check that the spinners are consistent
-([`GIRS_is_consistent`](@ref)), have no bounce-back operators
-([`GIRS_has_no_bounce_back_operators`](@ref)), and live on a tree
-([`is_a_tree`](@ref)).
+The inner constructor (last form) takes every field and only checks them: the
+spinners are consistent ([`GIRS_is_consistent`](@ref)), have no bounce-back
+operators ([`GIRS_has_no_bounce_back_operators`](@ref)), and live on a connected
+acyclic graph ([`is_connected_acyclic`](@ref)), and the cached fields agree with
+the spinners. The other forms are convenience constructors that compute the
+cached fields and call it.
 
 - `TQSMatrix(spinners)`: use a vector of spinners. The block order of the
   matrix follows the order of the vector.
@@ -25,48 +28,66 @@ The constructors check that the spinners are consistent
   dense matrix (see the method docstring).
 
 # Fields
-`spinners`, `node_ordering`, `K` (number of nodes), `adjacency_list`, the block
-sizes `m`/`n`, the ranges `mrange`/`nrange`, and the total size `M × N`.
+- `spinners`: the spinner of each node, keyed by node id.
+- `node_ordering`: node ids in block order.
+- `adjacency_list`: the neighbours of each node (a cache of `spinners[k].neighbors`).
+- `m`, `n`: block row/column size of each node (a cache of `spinners[k].m`/`.n`).
+- `mrange`, `nrange`: row/column index range of each node (a cache;
+  `mrange == construct_range_vec(m, node_ordering)`).
+
+The number of nodes is `length(T.node_ordering)` and the size is `size(T)`.
 """
 struct TQSMatrix{Scalar <: Number}
 	# spinners
 	spinners::IndexedVector{Spinner{Scalar}}
 	# graph attributes
 	node_ordering::Vector{Int}
-	K::Int
 	adjacency_list::IndexedVector{Vector{Int}}
-	# dimensions
+	# block sizes
 	m::IndexedVector{Int}
 	n::IndexedVector{Int}
+	# mapping between nodes and matrix entries
 	mrange::IndexedVector{UnitRange}
 	nrange::IndexedVector{UnitRange}
-	M::Int
-	N::Int
 
-	function TQSMatrix{Scalar}(spinners, node_ordering) where {Scalar <: Number}
+	function TQSMatrix{Scalar}(
+		spinners,
+		node_ordering,
+		adjacency_list,
+		m,
+		n,
+		mrange,
+		nrange,
+	) where {Scalar <: Number}
 
 		# correctness of input
 		@assert all(s -> eltype(s) == Scalar, values(spinners))
 		@assert all([spinners[k].id == k for k ∈ keys(spinners)])
-		@assert length(spinners) == length(node_ordering)
+		@assert allunique(node_ordering)
 		@assert Set(keys(spinners)) == Set(node_ordering)
 
 		# checks spinners generate a valid TQS matrix
 		@assert GIRS_is_consistent(spinners)
 		@assert GIRS_has_no_bounce_back_operators(spinners)
-		adjacency_list = Dict(s.id => s.neighbors for s ∈ values(spinners))
-		@assert is_a_tree(adjacency_list)
+		@assert is_connected_acyclic(adjacency_list)
 
-		K = length(node_ordering)
-		m = Dict(s.id => s.m for s ∈ values(spinners))
-		n = Dict(s.id => s.n for s ∈ values(spinners))
-		mrange = construct_range_vec(m, node_ordering)
-		nrange = construct_range_vec(n, node_ordering)
-		M = sum(values(m))
-		N = sum(values(n))
+		# cached fields agree with the spinners
+		@assert adjacency_list == Dict(s.id => s.neighbors for s ∈ values(spinners))
+		@assert m == Dict(s.id => s.m for s ∈ values(spinners))
+		@assert n == Dict(s.id => s.n for s ∈ values(spinners))
+		@assert mrange == construct_range_vec(m, node_ordering)
+		@assert nrange == construct_range_vec(n, node_ordering)
 
-		new{Scalar}(spinners, node_ordering, K, adjacency_list, m, n, mrange, nrange, M, N)
+		new{Scalar}(spinners, node_ordering, adjacency_list, m, n, mrange, nrange)
 	end
+end
+function TQSMatrix{Scalar}(spinners, node_ordering) where {Scalar <: Number}
+	adjacency_list = IndexedVector{Vector{Int}}(s.id => s.neighbors for s ∈ values(spinners))
+	m = IndexedVector{Int}(s.id => s.m for s ∈ values(spinners))
+	n = IndexedVector{Int}(s.id => s.n for s ∈ values(spinners))
+	mrange = construct_range_vec(m, node_ordering)
+	nrange = construct_range_vec(n, node_ordering)
+	return TQSMatrix{Scalar}(spinners, node_ordering, adjacency_list, m, n, mrange, nrange)
 end
 function TQSMatrix(spinners, node_ordering)
 	@assert !isempty(spinners)
@@ -80,5 +101,6 @@ function TQSMatrix(spinners)
 end
 
 Base.eltype(T::TQSMatrix) = typeof(T).parameters[1]
-Base.:size(T::TQSMatrix) = (T.M, T.N)
+Base.:size(T::TQSMatrix) = (sum(values(T.m)), sum(values(T.n)))
+Base.:size(T::TQSMatrix, d) = size(T)[d]
 construct_tree(T::TQSMatrix, root) = construct_tree(T.adjacency_list, root)

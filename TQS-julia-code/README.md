@@ -24,7 +24,7 @@ The `TQSMatrices` module lives in [`src/`](src/). Every public function and type
 | [`src/TQSMatrices.jl`](src/TQSMatrices.jl) | Module entry point: module docstring and notation, exports, and `include`s of the files below. |
 | [`src/containers.jl`](src/containers.jl) | `ZeroMatrix`, `IndexedVector`, `IndexedMatrix`. |
 | [`src/utils.jl`](src/utils.jl) | `relative_error`, `construct_range_vec`. |
-| [`src/tree.jl`](src/tree.jl) | `is_a_tree`, the rooted `Tree` type, `construct_tree`. |
+| [`src/tree.jl`](src/tree.jl) | `is_connected_acyclic`, the rooted `Tree` type, `construct_tree`. |
 | [`src/graph_partitioned.jl`](src/graph_partitioned.jl) | `GraphPartitionedMatrix`, `get_block`, `get_hankelblock`. |
 | [`src/spinner.jl`](src/spinner.jl) | `Spinner` and the consistency checks `GIRS_is_consistent`, `GIRS_has_no_bounce_back_operators`. |
 | [`src/tqsmatrix.jl`](src/tqsmatrix.jl) | The `TQSMatrix` type and its constructors from spinners. |

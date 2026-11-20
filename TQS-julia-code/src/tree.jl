@@ -1,18 +1,19 @@
-#########################################
-# Check if vector of spinners is a tree #
-#########################################
+##############################################
+# Check if a graph is connected and acyclic  #
+##############################################
 
 """
-	is_a_tree(adj_list)
+	is_connected_acyclic(adj_list)
 
 Return `true` if the undirected graph given by the adjacency list
-(`Dict{Int, Vector{Int}}`) is a tree, i.e. it is connected and has no cycles.
+(`Dict{Int, Vector{Int}}`) is connected and has no cycles. Such a graph becomes
+a tree once a root is picked (see [`construct_tree`](@ref)).
 Uses a depth-first search.
 """
-function is_a_tree(adj_list)
-	# for an indirect graph to be a tree:
-	# 1. no cycles
-	# 2. fully connected
+function is_connected_acyclic(adj_list)
+	# checks the undirected graph is:
+	# 1. acyclic (no cycles)
+	# 2. connected
 
 	visited = Dict(node => false for node ∈ keys(adj_list))
 	start_node = first(keys(adj_list))
@@ -27,7 +28,7 @@ function is_a_tree(adj_list)
 			if !visited[neighbor]
 				push!(stack, (neighbor, node))
 			elseif neighbor != prev
-				return false  # Back edge, so it's not a tree
+				return false  # Back edge, so there is a cycle
 			end
 		end
 	end
@@ -44,9 +45,14 @@ end
 """
 	Tree
 
-A rooted view of a tree graph, created by [`construct_tree`](@ref). Both the
-mat-vec and the construction algorithm use it to schedule their upsweep
-(leaves → root) and downsweep (root → leaves) stages.
+A connected acyclic undirected graph together with a chosen root, which orders
+its nodes into levels, parents and children. It is normally created by
+[`construct_tree`](@ref). Both the mat-vec and the construction algorithm use it
+to schedule their upsweep (leaves → root) and downsweep (root → leaves) stages.
+
+The inner constructor `Tree(adjacency_list, root, tree_depth, levels, parent,
+children, siblings, descendants, descendants_complement)` takes every field and
+only checks that they describe `adjacency_list` rooted at `root`.
 
 # Fields
 - `adjacency_list`: the underlying undirected graph.
@@ -69,6 +75,65 @@ struct Tree
 	siblings::IndexedVector{Vector{Int}}
 	descendants::IndexedVector{Vector{Int}}
 	descendants_complement::IndexedVector{Vector{Int}}
+	function Tree(
+		adjacency_list,
+		root,
+		tree_depth,
+		levels,
+		parent,
+		children,
+		siblings,
+		descendants,
+		descendants_complement,
+	)
+		# the underlying graph
+		@assert is_connected_acyclic(adjacency_list)
+		nodes = Set(keys(adjacency_list))
+		@assert root ∈ nodes
+		for d ∈ (parent, children, siblings, descendants, descendants_complement)
+			@assert Set(keys(d)) == nodes
+		end
+
+		# parent and children: every edge is a parent-child edge
+		@assert isnothing(parent[root])
+		for k ∈ nodes
+			k == root || @assert parent[k] ∈ adjacency_list[k]
+			@assert Set(children[k]) == Set(c for c ∈ nodes if c != root && parent[c] == k)
+			@assert Set(adjacency_list[k]) ==
+					union(Set(children[k]), k == root ? Set{Int}() : Set([parent[k]]))
+		end
+
+		# levels: levels[l] holds the nodes at distance l - 1 from the root
+		@assert tree_depth == length(levels) - 1
+		@assert levels[1] == [root]
+		@assert all(!isempty, levels)
+		@assert sort(vcat(levels...)) == sort(collect(nodes))
+		for l ∈ 2:length(levels), k ∈ levels[l]
+			@assert parent[k] ∈ levels[l-1]
+		end
+
+		# siblings, descendants and their complements
+		for k ∈ nodes
+			@assert Set(siblings[k]) ==
+					(k == root ? Set{Int}() : setdiff(Set(children[parent[k]]), [k]))
+			@assert Set(descendants[k]) ==
+					union(Set([k]), (Set(descendants[c]) for c ∈ children[k])...)
+			@assert allunique(descendants[k])
+			@assert Set(descendants_complement[k]) == setdiff(nodes, descendants[k])
+		end
+
+		new(
+			adjacency_list,
+			root,
+			tree_depth,
+			levels,
+			parent,
+			children,
+			siblings,
+			descendants,
+			descendants_complement,
+		)
+	end
 end
 
 """
@@ -76,14 +141,15 @@ end
 	construct_tree(A::GraphPartitionedMatrix, root)
 	construct_tree(T::TQSMatrix, root)
 
-Root the tree described by `adj_list` (or by the graph of `A`/`T`) at `root`,
+Root the connected acyclic graph described by `adj_list` (or by the graph of `A`/`T`) at `root`,
 and return a [`Tree`](@ref) with its levels (from a breadth-first search) and its
 parent/children/sibling/descendant relations.
 
-The graph is assumed to be a tree. Check this first with [`is_a_tree`](@ref).
+The graph is assumed to be connected and acyclic. Check this first with
+[`is_connected_acyclic`](@ref).
 """
 function construct_tree(adj_list, root)
-	# function assumes nodeset is a tree. Run first GIRS_is_tree
+	# assumes the graph is connected and acyclic; check first with is_connected_acyclic
 
 	@assert haskey(adj_list, root)
 	not_yet_visited = Dict(node => true for node ∈ keys(adj_list))

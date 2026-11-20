@@ -39,6 +39,8 @@ reuses it when it processes neighbouring edges.
 
 - `X`: rows split by `out_ranges` (relative to `out_nodes`). Use [`Xblock`](@ref).
 - `Y`: columns split by `in_ranges` (relative to `in_nodes`). Use [`Yblock`](@ref).
+
+The constructor takes every field and only checks that they are consistent.
 """
 struct HankelFactorization
 	X::AbstractMatrix
@@ -47,6 +49,22 @@ struct HankelFactorization
 	in_ranges::IndexedVector{UnitRange}
 	out_nodes::Vector{Int}
 	out_ranges::IndexedVector{UnitRange}
+	function HankelFactorization(X, Y, in_nodes, in_ranges, out_nodes, out_ranges)
+		# the inner dimensions of X and Y agree
+		@assert size(X, 2) == size(Y, 1)
+		# in_ranges lays out the in_nodes contiguously, in order, over the columns of Y
+		@assert allunique(in_nodes) && Set(keys(in_ranges)) == Set(in_nodes)
+		in_sizes = IndexedVector{Int}(k => length(r) for (k, r) ∈ in_ranges)
+		@assert in_ranges == construct_range_vec(in_sizes, in_nodes)
+		@assert sum(values(in_sizes); init = 0) == size(Y, 2)
+		# out_ranges lays out the out_nodes contiguously, in order, over the rows of X
+		@assert allunique(out_nodes) && Set(keys(out_ranges)) == Set(out_nodes)
+		out_sizes = IndexedVector{Int}(k => length(r) for (k, r) ∈ out_ranges)
+		@assert out_ranges == construct_range_vec(out_sizes, out_nodes)
+		@assert sum(values(out_sizes); init = 0) == size(X, 1)
+
+		new(X, Y, in_nodes, in_ranges, out_nodes, out_ranges)
+	end
 end
 
 """
