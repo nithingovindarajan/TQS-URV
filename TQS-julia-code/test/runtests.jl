@@ -706,3 +706,81 @@ P = T.partition
 @test fields(rebuild(H)) == fields(H)
 @test_throws AssertionError rebuild(H, :in_nodes, reverse(H.in_nodes))
 @test_throws AssertionError rebuild(H, :Y, H.Y[:, 2:end])
+
+
+#########################
+# Test: UndirectedGraph #
+#########################
+
+@test_throws AssertionError UndirectedGraph(Dict(1 => [2], 2 => Int[]))      # not symmetric
+@test_throws AssertionError UndirectedGraph(Dict(1 => [1]))                  # self-loop
+@test_throws AssertionError UndirectedGraph(Dict(1 => [2]))                  # unknown neighbour
+@test_throws AssertionError UndirectedGraph(Dict(1 => [2, 2], 2 => [1]))     # duplicate neighbour
+@test UndirectedGraph(Dict(1 => [2, 3], 2 => [1], 3 => [1])) ==
+	  UndirectedGraph(Dict(1 => [3, 2], 2 => [1], 3 => [1]))                 # order does not matter
+@test UndirectedGraph(Dict(1 => [2], 2 => [1], 3 => Int[])) != UndirectedGraph(Dict(1 => [2], 2 => [1]))
+@test !is_connected_acyclic(UndirectedGraph(Dict(1 => [2], 2 => [1], 3 => Int[])))  # not connected
+
+# a tree needs a connected acyclic graph
+@test_throws AssertionError Tree(graph_cyclic, 1)
+@test_throws AssertionError Tree(UndirectedGraph(Dict(1 => [2], 2 => [1], 3 => Int[])), 1)
+@test depth(Tree(UndirectedGraph(Dict(7 => Int[])), 7)) == 0
+
+
+########################
+# Test: BlockPartition #
+########################
+
+P = BlockPartition([3, 1], [2, 4], [5, 6])
+@test P.mrange[3] == 1:2 && P.mrange[1] == 3:6
+@test P.nrange[3] == 1:5 && P.nrange[1] == 6:11
+@test size(P) == (6, 11)
+@test BlockPartition([3, 1], Dict(3 => 2, 1 => 4), Dict(3 => 5, 1 => 6)) == P
+@test BlockPartition([1, 3], [4, 2], [6, 5]) != P                         # other block order
+@test fields(rebuild(P)) == fields(P)
+@test_throws AssertionError BlockPartition([3, 3], [2, 4], [5, 6])        # duplicate node
+@test_throws AssertionError BlockPartition([3, 1], [-2, 4], [5, 6])       # negative size
+@test_throws AssertionError rebuild(P, :mrange, P.nrange)                 # stale ranges
+
+
+############################
+# Test: GIRSRepresentation #
+############################
+
+# spinners on a graph with a cycle and with bounce-back operators are a valid
+# GIRS representation, but not a TQS matrix
+G_cyclic = GIRSRepresentation(nodeset_cyclic, [1, 2, 3, 4, 5])
+@test G_cyclic.graph == graph_cyclic
+@test !is_connected_acyclic(G_cyclic.graph)
+@test !has_no_bounce_back_operators(G_cyclic)
+@test size(G_cyclic) == (sum(s.m for s ∈ values(nodeset_cyclic)), sum(s.n for s ∈ values(nodeset_cyclic)))
+@test fields(rebuild(G_cyclic)) == fields(G_cyclic)
+@test_throws AssertionError rebuild(G_cyclic, :graph, graph_acyclic)
+@test_throws AssertionError TQSMatrix(G_cyclic, 1)
+
+# a bounce-back operator on a tree: a valid GIRS representation, not a TQS matrix
+s1 = nodeset_acyclic[1]
+s1_bounce = Spinner{Float64}(
+	1,
+	IndexedMatrix{AbstractMatrix{Float64}}(copy(s1.trans.array), s1.trans.labels),
+	s1.inp,
+	s1.out,
+	s1.D,
+)
+s1_bounce.trans[2, 2] = rand(s1.p_out[2], s1.p_in[2])
+G_bounce = GIRSRepresentation(merge(nodeset_acyclic, Dict(1 => s1_bounce)), node_ordering)
+@test is_connected_acyclic(G_bounce.graph)
+@test !has_no_bounce_back_operators(G_bounce)
+@test_throws AssertionError TQSMatrix(G_bounce, 1)
+@test has_no_bounce_back_operators(nodeset_acyclic)                       # original untouched
+
+# TQS matrix ↔ GIRS representation
+G = GIRSRepresentation(T)
+@test G.spinners == T.spinners && G.graph == T.tree.graph && G.partition == T.partition
+@test Matrix(TQSMatrix(G, 1)) ≈ Matrix(T)
+
+# re-rooting does not change the matrix
+T5 = TQSMatrix(T, 5)
+@test T5.tree.root == 5 && depth(T5.tree) == 3
+@test Matrix(T5) ≈ Matrix(T)
+@test GraphPartitionedMatrix(T5).partition == T.partition
