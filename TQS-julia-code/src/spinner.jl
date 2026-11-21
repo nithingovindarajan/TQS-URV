@@ -21,7 +21,8 @@ neighbour `j`. The spinner defines
 - `inp[k]` (`p_out[k] × n`): maps the local input to the outgoing state towards `k`.
 - `out[j]` (`m × p_in[j]`): maps the incoming state from `j` to the local output.
 - `trans[k, l]` (`p_out[k] × p_in[l]`): passes the state arriving from `l` on to `k`.
-  For a TQS matrix, the "bounce-back" operators `trans[k, k]` must be [`ZeroMatrix`](@ref).
+  In a [`TQSMatrix`](@ref) the "bounce-back" operators `trans[k, k]` must be
+  [`ZeroMatrix`](@ref); a general [`GIRSRepresentation`](@ref) may have them.
 - `m`, `n`: output/input block sizes of the node.
 - `p_in[j]`, `p_out[j]`: incoming/outgoing state dimensions per neighbour.
 
@@ -166,14 +167,15 @@ end
 ###############################################
 
 """
-	GIRS_has_no_bounce_back_operators(nodeset)
+	has_no_bounce_back_operators(nodeset)
+	has_no_bounce_back_operators(G::GIRSRepresentation)
 
 Return `true` if every spinner's bounce-back operator `trans[i, i]` is a
-[`ZeroMatrix`](@ref). A state that arrives from neighbour `i` must never be sent
-straight back to `i`. Together with a tree graph, this is what makes a GIRS
-representation a TQS matrix.
+[`ZeroMatrix`](@ref): a state that arrives from neighbour `i` is never sent
+straight back to `i`. A general GIRS representation may have bounce-back
+operators; a [`TQSMatrix`](@ref) may not.
 """
-function GIRS_has_no_bounce_back_operators(nodeset)
+function has_no_bounce_back_operators(nodeset)
 	for node ∈ values(nodeset)
 		for i ∈ node.neighbors
 			if !isa(node.trans[i, i], ZeroMatrix)
@@ -181,5 +183,28 @@ function GIRS_has_no_bounce_back_operators(nodeset)
 			end
 		end
 	end
+	return true
+end
+
+
+##########################################################
+# Check that spinners agree with a graph and a partition #
+##########################################################
+
+# Shared check of the inner constructors of GIRSRepresentation and TQSMatrix:
+# the spinners (keyed by id, element type `Scalar`) are consistent, their
+# neighbour lists are the graph `graph`, and their sizes are the partition
+# `partition`. Returns `true`; throws an `AssertionError` otherwise.
+function _check_spinners(Scalar, spinners, graph::UndirectedGraph, partition::BlockPartition)
+	@assert all(s -> eltype(s) == Scalar, values(spinners))
+	@assert all(spinners[k].id == k for k ∈ keys(spinners))
+	@assert GIRS_is_consistent(spinners)
+	# graph
+	@assert Set(keys(graph.adjacency_list)) == Set(keys(spinners))
+	@assert all(Set(spinners[k].neighbors) == Set(graph.adjacency_list[k]) for k ∈ keys(spinners))
+	# partition
+	@assert Set(partition.node_ordering) == Set(keys(spinners))
+	@assert all(partition.m[k] == spinners[k].m for k ∈ keys(spinners))
+	@assert all(partition.n[k] == spinners[k].n for k ∈ keys(spinners))
 	return true
 end

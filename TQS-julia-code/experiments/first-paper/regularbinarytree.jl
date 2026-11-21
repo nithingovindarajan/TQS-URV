@@ -78,14 +78,14 @@ for k ∈ 1:9
 	for j ∈ 1:NO_TRIALS
 		display(k)
 		T, root = random_regularbinarytreematrix(k; return_inverse = true)
-		T_TQS, tree, _ = TQSMatrix(T, root, tol, ρ_max)
+		T_TQS, _ = TQSMatrix(T, root, tol, ρ_max)
 		# Check if all state dimensions are equal to unity.
 		for spinner ∈ values(T_TQS.spinners)
 			@assert all(x -> x == 1, values(spinner.p_in))
 			@assert all(x -> x == 1, values(spinner.p_out))
 		end
 		# Check for approximation error.
-		append!(tmp, relative_error(T.mat, Matrix(T_TQS, tree)))
+		append!(tmp, relative_error(T.mat, Matrix(T_TQS)))
 	end
 	errors = [errors;
 		k mean(tmp) std(tmp)]

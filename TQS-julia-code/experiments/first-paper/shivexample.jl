@@ -73,12 +73,12 @@ end
 
 k = 3
 T, root = random_regularbinarytreematrix(k; return_inverse = false)
-T_TQS, tree, ρ = TQSMatrix(T, root, tol, ρ_max)
+T_TQS, ρ = TQSMatrix(T, root, tol, ρ_max)
 # Check if all state dimensions are equal to unity.
 
 println([key for (key, value) in ρ if value == 2])
 
-tree.levels
+T_TQS.tree.levels
 
 
 
@@ -93,7 +93,7 @@ TQSMatrices.get_block(T, [4, 5, 6, 1, 2, 3, 7])
 
 k = 4
 T, root = random_regularbinarytreematrix(k; return_inverse = false)
-T_TQS, tree, ρ = TQSMatrix(T, root, tol, ρ_max)
+T_TQS, ρ = TQSMatrix(T, root, tol, ρ_max)
 # Check if all state dimensions are equal to unity.
 
 println([value for (key, value) in ρ])

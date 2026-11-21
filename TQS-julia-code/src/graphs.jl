@@ -1,19 +1,52 @@
-##############################################
-# Check if a graph is connected and acyclic  #
-##############################################
+####################
+# Undirected graph #
+####################
 
 """
-	is_connected_acyclic(adj_list)
+	UndirectedGraph(adjacency_list)
 
-Return `true` if the undirected graph given by the adjacency list
-(`Dict{Int, Vector{Int}}`) is connected and has no cycles. Such a graph becomes
-a tree once a root is picked (see [`construct_tree`](@ref)).
-Uses a depth-first search.
+An undirected graph on integer node labels, given by its adjacency list
+(`Dict{Int, Vector{Int}}`): `adjacency_list[k]` holds the neighbours of node `k`.
+The graph may have cycles and need not be connected.
+
+The constructor takes the only field and checks that it describes an undirected
+graph: neighbour lists have no duplicates, there are no self-loops, every
+neighbour is itself a node, and the relation is symmetric (`j ∈ adjacency_list[i]`
+iff `i ∈ adjacency_list[j]`).
+
+Two graphs are `==` when they have the same nodes and the same neighbour sets;
+the order inside a neighbour list does not matter.
+
+See also [`is_connected_acyclic`](@ref) and [`Tree`](@ref).
 """
-function is_connected_acyclic(adj_list)
-	# checks the undirected graph is:
-	# 1. acyclic (no cycles)
-	# 2. connected
+struct UndirectedGraph
+	adjacency_list::IndexedVector{Vector{Int}}
+	function UndirectedGraph(adjacency_list)
+		for (node, neighbors) ∈ adjacency_list
+			@assert allunique(neighbors)
+			@assert node ∉ neighbors  # no self-loops
+			for neighbor ∈ neighbors
+				@assert haskey(adjacency_list, neighbor)
+				@assert node ∈ adjacency_list[neighbor]  # symmetric
+			end
+		end
+		new(adjacency_list)
+	end
+end
+_neighbor_sets(G::UndirectedGraph) = Dict(k => Set(v) for (k, v) ∈ G.adjacency_list)
+Base.:(==)(G1::UndirectedGraph, G2::UndirectedGraph) = _neighbor_sets(G1) == _neighbor_sets(G2)
+Base.hash(G::UndirectedGraph, h::UInt) = hash(_neighbor_sets(G), hash(:UndirectedGraph, h))
+
+
+"""
+	is_connected_acyclic(G::UndirectedGraph)
+
+Return `true` if `G` is connected and has no cycles. Such a graph becomes a
+[`Tree`](@ref) once a root is picked. Uses a depth-first search.
+"""
+function is_connected_acyclic(G::UndirectedGraph)
+	adj_list = G.adjacency_list
+	isempty(adj_list) && return true
 
 	visited = Dict(node => false for node ∈ keys(adj_list))
 	start_node = first(keys(adj_list))
@@ -38,37 +71,40 @@ function is_connected_acyclic(adj_list)
 end
 
 
-#########################
-# Determine tree levels #
-#########################
+########
+# Tree #
+########
 
 """
-	Tree
+	Tree(G::UndirectedGraph, root)
+	Tree(graph, root, levels, parent, children, siblings, descendants, descendants_complement)
 
 A connected acyclic undirected graph together with a chosen root, which orders
-its nodes into levels, parents and children. It is normally created by
-[`construct_tree`](@ref). Both the mat-vec and the construction algorithm use it
-to schedule their upsweep (leaves → root) and downsweep (root → leaves) stages.
+its nodes into levels, parents and children. Both the mat-vec and the
+construction algorithm use it to schedule their upsweep (leaves → root) and
+downsweep (root → leaves) stages.
 
-The inner constructor `Tree(adjacency_list, root, tree_depth, levels, parent,
-children, siblings, descendants, descendants_complement)` takes every field and
-only checks that they describe `adjacency_list` rooted at `root`.
+- `Tree(G, root)`: root the graph `G` at `root`. The levels come from a
+  breadth-first search, and the other fields are derived from the parents.
+- The inner constructor (second form) takes every field and only checks that
+  `graph` is connected and acyclic and that the other fields describe `graph`
+  rooted at `root`.
 
 # Fields
-- `adjacency_list`: the underlying undirected graph.
+- `graph`: the underlying [`UndirectedGraph`](@ref).
 - `root`: the chosen root node.
-- `tree_depth`: number of levels minus one.
 - `levels`: `levels[1] == [root]`, and `levels[l]` holds the nodes at distance `l - 1`.
 - `parent[i]`: parent of `i` (`nothing` for the root).
 - `children[i]`: children of `i`.
 - `siblings[i]`: the other children of `parent[i]`.
 - `descendants[i]`: the subtree rooted at `i`, including `i` itself.
 - `descendants_complement[i]`: all nodes outside that subtree.
+
+The depth of the tree is [`depth(tree)`](@ref depth).
 """
 struct Tree
-	adjacency_list::IndexedVector{Vector{Int}}
+	graph::UndirectedGraph
 	root::Int
-	tree_depth::Int
 	levels::Vector{Vector{Int}}
 	parent::IndexedVector{Union{Int, Nothing}}
 	children::IndexedVector{Vector{Int}}
@@ -76,9 +112,8 @@ struct Tree
 	descendants::IndexedVector{Vector{Int}}
 	descendants_complement::IndexedVector{Vector{Int}}
 	function Tree(
-		adjacency_list,
+		graph,
 		root,
-		tree_depth,
 		levels,
 		parent,
 		children,
@@ -87,7 +122,8 @@ struct Tree
 		descendants_complement,
 	)
 		# the underlying graph
-		@assert is_connected_acyclic(adjacency_list)
+		@assert is_connected_acyclic(graph)
+		adjacency_list = graph.adjacency_list
 		nodes = Set(keys(adjacency_list))
 		@assert root ∈ nodes
 		for d ∈ (parent, children, siblings, descendants, descendants_complement)
@@ -104,7 +140,6 @@ struct Tree
 		end
 
 		# levels: levels[l] holds the nodes at distance l - 1 from the root
-		@assert tree_depth == length(levels) - 1
 		@assert levels[1] == [root]
 		@assert all(!isempty, levels)
 		@assert sort(vcat(levels...)) == sort(collect(nodes))
@@ -123,9 +158,8 @@ struct Tree
 		end
 
 		new(
-			adjacency_list,
+			graph,
 			root,
-			tree_depth,
 			levels,
 			parent,
 			children,
@@ -136,34 +170,20 @@ struct Tree
 	end
 end
 
-"""
-	construct_tree(adj_list, root)
-	construct_tree(A::GraphPartitionedMatrix, root)
-	construct_tree(T::TQSMatrix, root)
-
-Root the connected acyclic graph described by `adj_list` (or by the graph of `A`/`T`) at `root`,
-and return a [`Tree`](@ref) with its levels (from a breadth-first search) and its
-parent/children/sibling/descendant relations.
-
-The graph is assumed to be connected and acyclic. Check this first with
-[`is_connected_acyclic`](@ref).
-"""
-function construct_tree(adj_list, root)
-	# assumes the graph is connected and acyclic; check first with is_connected_acyclic
-
+function Tree(G::UndirectedGraph, root)
+	adj_list = G.adjacency_list
 	@assert haskey(adj_list, root)
-	not_yet_visited = Dict(node => true for node ∈ keys(adj_list))
 
-	#breadth first search
+	# breadth first search (stops when a level is empty; if `G` is not connected
+	# the unreached nodes make the inner constructor fail)
+	not_yet_visited = Dict(node => true for node ∈ keys(adj_list))
 	parent = Dict{Int, Union{Int, Nothing}}()
 	parent[root] = nothing
 	levels = [[root]]
 	not_yet_visited[root] = false
-	current_level = levels[1]
-	k = 1
-	while any(values(not_yet_visited))
-		next_level = []
-		for node ∈ current_level
+	while true
+		next_level = Int[]
+		for node ∈ levels[end]
 			for neighbor ∈ adj_list[node]
 				if not_yet_visited[neighbor]
 					parent[neighbor] = node
@@ -172,12 +192,12 @@ function construct_tree(adj_list, root)
 				end
 			end
 		end
+		isempty(next_level) && break
 		push!(levels, next_level)
-		k += 1
-		current_level = next_level
 	end
-	tree_depth = k - 1
-
+	for node ∈ keys(adj_list)  # unreached nodes get a dummy parent, see above
+		not_yet_visited[node] && (parent[node] = nothing)
+	end
 
 	# determine children
 	children = Dict{Int, Vector{Int}}(k => [] for k ∈ keys(adj_list))
@@ -187,27 +207,21 @@ function construct_tree(adj_list, root)
 		end
 	end
 
-
 	# determine siblings
 	siblings = Dict{Int, Vector{Int}}(k => [] for k ∈ keys(adj_list))
 	for childrenset ∈ values(children)
-		if !isempty(childrenset)
-			for c ∈ childrenset
-				siblings[c] = filter(x -> x != c, childrenset)
-			end
+		for c ∈ childrenset
+			siblings[c] = filter(x -> x != c, childrenset)
 		end
 	end
 
-
-	# determine descendant and descendants complement
+	# determine descendants and descendants complement
 	descendants = Dict{Int, Vector{Int}}(k => [k] for k ∈ keys(adj_list))
 	for k ∈ keys(descendants)
 		function recursively_add_children!(x)
-			if !isempty(children[x])
-				for l ∈ children[x]
-					push!(descendants[k], l)
-					recursively_add_children!(l)
-				end
+			for l ∈ children[x]
+				push!(descendants[k], l)
+				recursively_add_children!(l)
 			end
 		end
 		recursively_add_children!(k)
@@ -217,9 +231,8 @@ function construct_tree(adj_list, root)
 		Dict{Int, Vector{Int}}(k => collect(setdiff(nodes, descendants[k])) for k ∈ nodes)
 
 	return Tree(
-		adj_list,
+		G,
 		root,
-		tree_depth,
 		levels,
 		parent,
 		children,
@@ -228,3 +241,10 @@ function construct_tree(adj_list, root)
 		descendants_complement,
 	)
 end
+
+"""
+	depth(tree::Tree)
+
+Number of levels of `tree` minus one (a single node has depth 0).
+"""
+depth(tree::Tree) = length(tree.levels) - 1

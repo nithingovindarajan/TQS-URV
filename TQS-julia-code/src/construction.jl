@@ -94,29 +94,20 @@ indexed by its neighbours. The constructor allocates uninitialised entries for
 the construction algorithm to fill in.
 """
 TransGraph{Scalar <: Number} = Dict{Int, IndexedMatrix{Scalar}}
-function TransGraph{Scalar}(T::GraphPartitionedMatrix) where {Scalar <: Number}
+function TransGraph{Scalar}(A::GraphPartitionedMatrix) where {Scalar <: Number}
 	transgraph = Dict{Int, IndexedMatrix{AbstractMatrix{Scalar}}}(
-		k => IndexedMatrix{AbstractMatrix{Scalar}}(v) for (k, v) ∈ T.adjacency_list
+		k => IndexedMatrix{AbstractMatrix{Scalar}}(v) for (k, v) ∈ A.graph.adjacency_list
 	)
 	return transgraph
 end
 
 
-# alternative constructor for TQS matrix
-function TQSMatrix{T}(trans, inp, out, D, node_ordering) where {T <: Number}
-	spinners = Dict()
-	for k ∈ node_ordering
-		spinners[k] = Spinner{T}(k, trans[k], inp[k], out[k], D[k])
-	end
-	return TQSMatrix{T}(spinners, node_ordering)
-end
-
-
 """
-	TQSMatrix(A::GraphPartitionedMatrix, root, tol, ρ_max) -> (T, tree, ρ)
+	TQSMatrix(A::GraphPartitionedMatrix, root, tol, ρ_max) -> (T, ρ)
 
 **Construction algorithm.** Compute a (near-)minimal TQS representation of the
-dense graph-partitioned matrix `A`, using `root` as the root of the tree.
+dense graph-partitioned matrix `A`, using `root` as the root of the tree. The
+graph of `A` must be connected and acyclic.
 
 Every directed edge `i → j` gets a low-rank factorization of a matrix `F`. `F` is
 built from the Hankel block of the edge, reusing factorizations already computed
@@ -137,24 +128,25 @@ factors give the generators.
 - `ρ_max`: maximum state dimension per edge (`Inf` for unlimited).
 
 # Returns
-- `T`: the resulting `TQSMatrix`.
-- `tree`: the rooted [`Tree`](@ref), needed for `T * x` and `Matrix(T, tree)`.
+- `T`: the resulting `TQSMatrix`, with tree `Tree(A.graph, root)`.
 - `ρ`: `Dict{Tuple{Int,Int},Int}` with the state dimension of each directed edge `(i, j)`.
 """
-function TQSMatrix(T::GraphPartitionedMatrix, root::Int, tol, ρ_max)
+function TQSMatrix(A::GraphPartitionedMatrix, root::Int, tol, ρ_max)
 
-	# construct tree
-	@assert root ∈ T.nodes
-	tree = construct_tree(T, root)
+	# construct tree (checks that the graph is connected and acyclic)
+	tree = Tree(A.graph, root)
+	nodes = A.partition.node_ordering
+	m, n = A.partition.m, A.partition.n
+	Scalar = eltype(A)
 
 	# Initialize generators
-	D = Dict{Int, Matrix{eltype(T)}}(node => get_block(T, node) for node ∈ T.nodes)
-	trans = TransGraph{eltype(T)}(T)
-	inp = Dict{Int, Dict{Int, Matrix{eltype(T)}}}(
-		k => Dict{Int, Matrix{eltype(T)}}() for k ∈ T.nodes
+	D = Dict{Int, Matrix{Scalar}}(node => get_block(A, node) for node ∈ nodes)
+	trans = TransGraph{Scalar}(A)
+	inp = Dict{Int, Dict{Int, Matrix{Scalar}}}(
+		k => Dict{Int, Matrix{Scalar}}() for k ∈ nodes
 	)
-	out = Dict{Int, Dict{Int, Matrix{eltype(T)}}}(
-		k => Dict{Int, Matrix{eltype(T)}}() for k ∈ T.nodes
+	out = Dict{Int, Dict{Int, Matrix{Scalar}}}(
+		k => Dict{Int, Matrix{Scalar}}() for k ∈ nodes
 	)
 
 	# generator skeleton hankel graph
@@ -170,13 +162,13 @@ function TQSMatrix(T::GraphPartitionedMatrix, root::Int, tol, ρ_max)
 
 			# out and in nodes of the Hankel block H[(i,j)]
 			in_nodes = [vcat([H[(w_t, i)].in_nodes for w_t ∈ w]...); i]
-			in_ranges = construct_range_vec(T.n, in_nodes)
+			in_ranges = construct_range_vec(n, in_nodes)
 			out_nodes = tree.descendants_complement[i]
-			out_ranges = construct_range_vec(T.m, out_nodes)
+			out_ranges = construct_range_vec(m, out_nodes)
 
 			#construct F
-			F = get_block(T, out_nodes, i)
-			F_partition_sizes = [(i, T.n[i])]
+			F = get_block(A, out_nodes, i)
+			F_partition_sizes = [(i, n[i])]
 			if !isempty(w)
 				F = [hcat([Xblock(H[(w_t, i)], out_nodes) for w_t ∈ w]...) F]
 				prepend!(F_partition_sizes, [(w_t, ρ[(w_t, i)]) for w_t ∈ w])
@@ -188,7 +180,7 @@ function TQSMatrix(T::GraphPartitionedMatrix, root::Int, tol, ρ_max)
 
 			# Set inp, trans & out, and form Y in the process
 			out[j][i] = X[out_ranges[j], :]
-			Y = Array{eltype(T)}(undef, ρ[(i, j)], 0)
+			Y = Array{Scalar}(undef, ρ[(i, j)], 0)
 			for w_t ∈ w
 				trans[i][j, w_t] = Z[:, Frange[w_t]]
 				Y = [Y trans[i][j, w_t] * H[(w_t, i)].Y]
@@ -213,13 +205,13 @@ function TQSMatrix(T::GraphPartitionedMatrix, root::Int, tol, ρ_max)
 			in_nodes = [isnothing(k) ? [] : tree.descendants_complement[j];
 				vcat([tree.descendants[v_t] for v_t ∈ v]...);
 				j]
-			in_ranges = construct_range_vec(T.n, in_nodes)
+			in_ranges = construct_range_vec(n, in_nodes)
 			out_nodes = tree.descendants[i]
-			out_ranges = construct_range_vec(T.m, out_nodes)
+			out_ranges = construct_range_vec(m, out_nodes)
 
 			#construct F
-			F = get_block(T, out_nodes, j)
-			F_partition_sizes = [(j, T.n[j])]
+			F = get_block(A, out_nodes, j)
+			F_partition_sizes = [(j, n[j])]
 			if !isempty(v)
 				F = [hcat([Xblock(H[(v_t, j)], out_nodes) for v_t ∈ v]...) F]
 				prepend!(F_partition_sizes, [(v_t, ρ[(v_t, j)]) for v_t ∈ v])
@@ -236,7 +228,7 @@ function TQSMatrix(T::GraphPartitionedMatrix, root::Int, tol, ρ_max)
 			# Set trans,inp, out, and form Y in the process
 			out[i][j] = X[out_ranges[i], :]
 			if isnothing(k)
-				Y = Array{eltype(T)}(undef, ρ[(j, i)], 0)
+				Y = Array{Scalar}(undef, ρ[(j, i)], 0)
 			else
 				trans[j][i, k] = Z[:, Frange[k]]
 				Y = trans[j][i, k] * H[(k, j)].Y
@@ -256,13 +248,14 @@ function TQSMatrix(T::GraphPartitionedMatrix, root::Int, tol, ρ_max)
 	# fill diagonals of trans with zero matrices
 	for (i, tr) ∈ trans
 		for s ∈ tr.labels
-			tr[s, s] = ZeroMatrix{eltype(T)}(ρ[(i, s)], ρ[(s, i)])
+			tr[s, s] = ZeroMatrix{Scalar}(ρ[(i, s)], ρ[(s, i)])
 		end
 	end
 
-	# construct TQS matrix (create alternative constructor!)
-	T_TQS = TQSMatrix{eltype(T)}(trans, inp, out, D, T.nodes)
+	# construct TQS matrix
+	G = GIRSRepresentation{Scalar}(trans, inp, out, D, nodes)
+	T = TQSMatrix{Scalar}(G.spinners, tree, G.partition)
 
-	return T_TQS, tree, ρ
+	return T, ρ
 
 end

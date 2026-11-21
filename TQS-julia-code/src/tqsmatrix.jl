@@ -3,104 +3,53 @@
 ################
 
 """
-	TQSMatrix(spinners::Vector{<:Spinner})
-	TQSMatrix(spinners::IndexedVector{Spinner}, node_ordering)
-	TQSMatrix{Scalar}(trans, inp, out, D, node_ordering)
-	TQSMatrix(A::GraphPartitionedMatrix, root, tol, ρ_max) -> (T, tree, ρ)
-	TQSMatrix{Scalar}(spinners, node_ordering, adjacency_list, m, n, mrange, nrange)
+	TQSMatrix(G::GIRSRepresentation, root)
+	TQSMatrix(T::TQSMatrix, root)
+	TQSMatrix(A::GraphPartitionedMatrix, root, tol, ρ_max) -> (T, ρ)
+	TQSMatrix{Scalar}(spinners, tree, partition)
 
-A Tree Quasi-Separable matrix, stored as one [`Spinner`](@ref) per node of a tree.
+A Tree Quasi-Separable matrix: one [`Spinner`](@ref) per node of a
+[`Tree`](@ref), without bounce-back operators. It has the same fields as a
+[`GIRSRepresentation`](@ref), except that the graph is replaced by a tree, i.e.
+the graph is connected and acyclic and a root is chosen. The root does not change
+the matrix; it only fixes the order in which the mat-vec visits the nodes.
 
-The inner constructor (last form) takes every field and only checks them: the
-spinners are consistent ([`GIRS_is_consistent`](@ref)), have no bounce-back
-operators ([`GIRS_has_no_bounce_back_operators`](@ref)), and live on a connected
-acyclic graph ([`is_connected_acyclic`](@ref)), and the cached fields agree with
-the spinners. The other forms are convenience constructors that compute the
-cached fields and call it.
+The inner constructor (last form) takes every field and only checks that the
+spinners are consistent ([`GIRS_is_consistent`](@ref)), that `tree.graph` is the
+graph of their neighbour lists, that `partition` matches their block sizes, and
+that they have no bounce-back operators ([`has_no_bounce_back_operators`](@ref)).
+That the graph is connected and acyclic is checked by [`Tree`](@ref).
 
-- `TQSMatrix(spinners)`: use a vector of spinners. The block order of the
-  matrix follows the order of the vector.
-- `TQSMatrix(spinners, node_ordering)`: use spinners keyed by id. The block
-  order is given by `node_ordering`.
-- `TQSMatrix{Scalar}(trans, inp, out, D, node_ordering)`: use per-node
-  generator dictionaries (`trans[k]`, `inp[k]`, ...). The construction algorithm uses this form.
+- `TQSMatrix(G, root)`: root the graph of the GIRS representation `G` at `root`.
+- `TQSMatrix(T, root)`: the same TQS matrix with a different root.
 - `TQSMatrix(A, root, tol, ρ_max)`: run the **construction algorithm** on a
   dense matrix (see the method docstring).
 
+`GIRSRepresentation(T)` forgets the root again.
+
 # Fields
 - `spinners`: the spinner of each node, keyed by node id.
-- `node_ordering`: node ids in block order.
-- `adjacency_list`: the neighbours of each node (a cache of `spinners[k].neighbors`).
-- `m`, `n`: block row/column size of each node (a cache of `spinners[k].m`/`.n`).
-- `mrange`, `nrange`: row/column index range of each node (a cache;
-  `mrange == construct_range_vec(m, node_ordering)`).
-
-The number of nodes is `length(T.node_ordering)` and the size is `size(T)`.
+- `tree`: the rooted [`Tree`](@ref) of the spinners' neighbour lists.
+- `partition`: the [`BlockPartition`](@ref) given by the spinners' block sizes.
 """
 struct TQSMatrix{Scalar <: Number}
-	# spinners
 	spinners::IndexedVector{Spinner{Scalar}}
-	# graph attributes
-	node_ordering::Vector{Int}
-	adjacency_list::IndexedVector{Vector{Int}}
-	# block sizes
-	m::IndexedVector{Int}
-	n::IndexedVector{Int}
-	# mapping between nodes and matrix entries
-	mrange::IndexedVector{UnitRange}
-	nrange::IndexedVector{UnitRange}
-
-	function TQSMatrix{Scalar}(
-		spinners,
-		node_ordering,
-		adjacency_list,
-		m,
-		n,
-		mrange,
-		nrange,
-	) where {Scalar <: Number}
-
-		# correctness of input
-		@assert all(s -> eltype(s) == Scalar, values(spinners))
-		@assert all([spinners[k].id == k for k ∈ keys(spinners)])
-		@assert allunique(node_ordering)
-		@assert Set(keys(spinners)) == Set(node_ordering)
-
-		# checks spinners generate a valid TQS matrix
-		@assert GIRS_is_consistent(spinners)
-		@assert GIRS_has_no_bounce_back_operators(spinners)
-		@assert is_connected_acyclic(adjacency_list)
-
-		# cached fields agree with the spinners
-		@assert adjacency_list == Dict(s.id => s.neighbors for s ∈ values(spinners))
-		@assert m == Dict(s.id => s.m for s ∈ values(spinners))
-		@assert n == Dict(s.id => s.n for s ∈ values(spinners))
-		@assert mrange == construct_range_vec(m, node_ordering)
-		@assert nrange == construct_range_vec(n, node_ordering)
-
-		new{Scalar}(spinners, node_ordering, adjacency_list, m, n, mrange, nrange)
+	tree::Tree
+	partition::BlockPartition
+	function TQSMatrix{Scalar}(spinners, tree, partition) where {Scalar <: Number}
+		@assert _check_spinners(Scalar, spinners, tree.graph, partition)
+		@assert has_no_bounce_back_operators(spinners)
+		new{Scalar}(spinners, tree, partition)
 	end
 end
-function TQSMatrix{Scalar}(spinners, node_ordering) where {Scalar <: Number}
-	adjacency_list = IndexedVector{Vector{Int}}(s.id => s.neighbors for s ∈ values(spinners))
-	m = IndexedVector{Int}(s.id => s.m for s ∈ values(spinners))
-	n = IndexedVector{Int}(s.id => s.n for s ∈ values(spinners))
-	mrange = construct_range_vec(m, node_ordering)
-	nrange = construct_range_vec(n, node_ordering)
-	return TQSMatrix{Scalar}(spinners, node_ordering, adjacency_list, m, n, mrange, nrange)
+function TQSMatrix(G::GIRSRepresentation, root::Integer)
+	return TQSMatrix{eltype(G)}(G.spinners, Tree(G.graph, root), G.partition)
 end
-function TQSMatrix(spinners, node_ordering)
-	@assert !isempty(spinners)
-	T = eltype(spinners[1])
-	return TQSMatrix{T}(spinners, node_ordering)
-end
-function TQSMatrix(spinners)
-	node_ordering = [s.id for s ∈ spinners]
-	spinners = IndexedVector{Spinner}(spinners)
-	return TQSMatrix(spinners, node_ordering)
+TQSMatrix(T::TQSMatrix, root::Integer) = TQSMatrix(GIRSRepresentation(T), root)
+function GIRSRepresentation(T::TQSMatrix)
+	return GIRSRepresentation{eltype(T)}(T.spinners, T.tree.graph, T.partition)
 end
 
 Base.eltype(T::TQSMatrix) = typeof(T).parameters[1]
-Base.:size(T::TQSMatrix) = (sum(values(T.m)), sum(values(T.n)))
-Base.:size(T::TQSMatrix, d) = size(T)[d]
-construct_tree(T::TQSMatrix, root) = construct_tree(T.adjacency_list, root)
+Base.:size(T::TQSMatrix) = size(T.partition)
+Base.:size(T::TQSMatrix, d) = size(T.partition, d)

@@ -103,10 +103,10 @@ tmp_n = [0; cumsum(n)]
 
 A = GraphPartitionedMatrix(mat, nodes, m, n, adjacency_list)
 @test eltype(A) == eltype(mat)
-@test all([A.m[nodes[k]] == m[k] for k in eachindex(nodes)])
-@test all([A.n[nodes[k]] == n[k] for k in eachindex(nodes)])
-@test all([A.mrange[nodes[k]] == tmp_m[k]+1:tmp_m[k+1] for k in eachindex(nodes)])
-@test all([A.nrange[nodes[k]] == tmp_n[k]+1:tmp_n[k+1] for k in eachindex(nodes)])
+@test all([A.partition.m[nodes[k]] == m[k] for k in eachindex(nodes)])
+@test all([A.partition.n[nodes[k]] == n[k] for k in eachindex(nodes)])
+@test all([A.partition.mrange[nodes[k]] == tmp_m[k]+1:tmp_m[k+1] for k in eachindex(nodes)])
+@test all([A.partition.nrange[nodes[k]] == tmp_n[k]+1:tmp_n[k+1] for k in eachindex(nodes)])
 @test all([
 	get_block(A, nodes[k], nodes[l]) == A.mat[tmp_m[k]+1:tmp_m[k+1], tmp_n[l]+1:tmp_n[l+1]]
 	for k in eachindex(nodes), l in eachindex(nodes)
@@ -114,27 +114,27 @@ A = GraphPartitionedMatrix(mat, nodes, m, n, adjacency_list)
 nodeset_in = rand(nodes)
 nodeset_out = rand(nodes, 2)
 @test get_block(A, nodeset_out, nodeset_in) == A.mat[
-	vcat([A.mrange[k] for k in nodeset_out]...),
-	vcat([A.nrange[k] for k in nodeset_in]...),
+	vcat([A.partition.mrange[k] for k in nodeset_out]...),
+	vcat([A.partition.nrange[k] for k in nodeset_in]...),
 ]
 nodeset_in = rand(nodes, 2)
 nodeset_out = rand(nodes)
 @test get_block(A, nodeset_out, nodeset_in) == A.mat[
-	vcat([A.mrange[k] for k in nodeset_out]...),
-	vcat([A.nrange[k] for k in nodeset_in]...),
+	vcat([A.partition.mrange[k] for k in nodeset_out]...),
+	vcat([A.partition.nrange[k] for k in nodeset_in]...),
 ]
 
 nodeset_in = rand(nodes, 2)
 nodeset_out = rand(nodes, 2)
 @test get_block(A, nodeset_out, nodeset_in) == A.mat[
-	vcat([A.mrange[k] for k in nodeset_out]...),
-	vcat([A.nrange[k] for k in nodeset_in]...),
+	vcat([A.partition.mrange[k] for k in nodeset_out]...),
+	vcat([A.partition.nrange[k] for k in nodeset_in]...),
 ]
 nodeset_in = [2 3]
 nodeset_out = [1, 4, 5]
 @test get_hankelblock(A, nodeset_in) == A.mat[
-	vcat([A.mrange[k] for k in nodeset_out]...),
-	vcat([A.nrange[k] for k in nodeset_in]...),
+	vcat([A.partition.mrange[k] for k in nodeset_out]...),
+	vcat([A.partition.nrange[k] for k in nodeset_in]...),
 ]
 
 # create a TransGraph
@@ -394,16 +394,18 @@ nodeset_cyclic = IndexedVector{Spinner}([node1, node2, node3, node4, node5])
 # Test: Checking if vector of spinners has no bounce back operators #
 #####################################################################
 
-@test GIRS_has_no_bounce_back_operators(nodeset_acyclic)
-@test !GIRS_has_no_bounce_back_operators(nodeset_cyclic)
+@test has_no_bounce_back_operators(nodeset_acyclic)
+@test !has_no_bounce_back_operators(nodeset_cyclic)
 
 #######################################
 # Test: graph connected and acyclic   #
 #######################################
 adj_list_nodeset_acyclic = Dict(s.id => s.neighbors for s in values(nodeset_acyclic))
 adj_list_nodeset_cyclic = Dict(s.id => s.neighbors for s in values(nodeset_cyclic))
-@test is_connected_acyclic(adj_list_nodeset_acyclic)
-@test !is_connected_acyclic(adj_list_nodeset_cyclic)
+graph_acyclic = UndirectedGraph(adj_list_nodeset_acyclic)
+graph_cyclic = UndirectedGraph(adj_list_nodeset_cyclic)
+@test is_connected_acyclic(graph_acyclic)
+@test !is_connected_acyclic(graph_cyclic)
 
 ##################################
 # Test: determine tree hierarchy #
@@ -414,8 +416,8 @@ adj_list_nodeset_cyclic = Dict(s.id => s.neighbors for s in values(nodeset_cycli
 #              |
 #         4 -- 6 -- 5
 
-tree = construct_tree(adj_list_nodeset_acyclic, 1)
-@test tree.tree_depth == 2
+tree = Tree(graph_acyclic, 1)
+@test depth(tree) == 2
 @test Set(tree.levels[1]) == Set([1])
 @test Set(tree.levels[2]) == Set([3, 2, 6])
 @test Set(tree.levels[3]) == Set([4, 5])
@@ -448,8 +450,8 @@ tree = construct_tree(adj_list_nodeset_acyclic, 1)
 @test Set(tree.descendants_complement[6]) == Set([1, 2, 3])
 
 
-tree = construct_tree(adj_list_nodeset_acyclic, 2)
-@test tree.tree_depth == 3
+tree = Tree(graph_acyclic, 2)
+@test depth(tree) == 3
 @test Set(tree.levels[1]) == Set([2])
 @test Set(tree.levels[2]) == Set([1])
 @test Set(tree.levels[3]) == Set([3, 6])
@@ -476,7 +478,7 @@ tree = construct_tree(adj_list_nodeset_acyclic, 2)
 #         4 -- 6 -- 5
 
 node_ordering = [1, 2, 3, 4, 5, 6]
-T = TQSMatrix(nodeset_acyclic, node_ordering);
+T = TQSMatrix(GIRSRepresentation(nodeset_acyclic, node_ordering), 1);
 
 trans_acyclic = Dict{Int, IndexedMatrix{AbstractMatrix{eltype(T)}}}(
 	k => node.trans for (k, node) in nodeset_acyclic
@@ -490,13 +492,14 @@ out_acyclic = Dict{Int, IndexedVector{AbstractMatrix{eltype(T)}}}(
 D_acyclic =
 	Dict{Int, AbstractMatrix{eltype(T)}}(k => node.D for (k, node) in nodeset_acyclic);
 
-T_alternative = TQSMatrix{eltype(T)}(
+G_alternative = GIRSRepresentation{eltype(T)}(
 	trans_acyclic,
 	inp_acyclic,
 	out_acyclic,
 	D_acyclic,
 	[1, 2, 3, 4, 5, 6],
 );
+T_alternative = TQSMatrix(G_alternative, 2);
 
 
 T11 = T.spinners[1].D                                                                   #                1 
@@ -589,9 +592,9 @@ Tdense = [
 TG = GraphPartitionedMatrix(
 	Tdense,
 	node_ordering,
-	[T.m[k] for k ∈ node_ordering],
-	[T.n[k] for k ∈ node_ordering],
-	T.adjacency_list,
+	[T.partition.m[k] for k ∈ node_ordering],
+	[T.partition.n[k] for k ∈ node_ordering],
+	T.tree.graph.adjacency_list,
 )
 
 ####################
@@ -605,7 +608,7 @@ TG = GraphPartitionedMatrix(
 #         4 -- 6 -- 5
 
 stategraph = StateGraph{Float64}(T);
-@test all([Set(T.adjacency_list[k]) == Set(keys(stategraph[k])) for k in T.node_ordering])
+@test all([Set(T.tree.graph.adjacency_list[k]) == Set(keys(stategraph[k])) for k in T.partition.node_ordering])
 @test all([
 	all([T.spinners[k].p_in[v_k] == length(v_v) for (v_k, v_v) in v]) for
 	(k, v) in stategraph
@@ -617,13 +620,13 @@ stategraph = StateGraph{Float64}(T);
 ############################################
 
 x = randn(size(T, 2))
-@test *(T, x, tree) ≈ Tdense * x
+@test T * x ≈ Tdense * x
 
 X = randn(size(T, 2), 30)
-@test *(T, X, tree) ≈ Tdense * X
+@test T * X ≈ Tdense * X
 
-@test Matrix(T, tree) ≈ Tdense
-@test Matrix(T_alternative, tree) ≈ Tdense
+@test Matrix(T) ≈ Tdense
+@test Matrix(T_alternative) ≈ Tdense
 
 [true for i ∈ 1:5, j ∈ 1:6]
 
@@ -656,9 +659,9 @@ H = HankelFactorization(X, Y, in_nodes, in_ranges, out_nodes, out_ranges)
 root = 1
 tol = 1E-12
 ρ_max = Inf
-TG_TQS, tree = TQSMatrix(TG, root, tol, ρ_max);
+TG_TQS, ρ = TQSMatrix(TG, root, tol, ρ_max);
 
-@test Matrix(TG_TQS, tree) ≈ Tdense
+@test Matrix(TG_TQS) ≈ Tdense
 
 ###########################################################
 # Test: inner constructors take the fields and check them #
@@ -680,17 +683,22 @@ IM = IndexedMatrix{Float64}(rand(3, 3), [7, 8, 9])
 
 # GraphPartitionedMatrix
 @test fields(rebuild(A)) == fields(A)
-@test_throws AssertionError rebuild(A, :mrange, IndexedVector{UnitRange}(k => 1:1 for k ∈ A.nodes))
-@test_throws AssertionError rebuild(A, :m, IndexedVector{Int}(k => 1 for k ∈ A.nodes))
+P = A.partition
+@test_throws AssertionError rebuild(A, :partition, BlockPartition(P.node_ordering, P.n, P.m))
+@test_throws AssertionError rebuild(A, :graph, UndirectedGraph(Dict(1 => [2], 2 => [1])))
 
 # TQSMatrix
 @test fields(rebuild(T)) == fields(T)
-@test_throws AssertionError rebuild(T, :m, IndexedVector{Int}(k => T.m[k] + 1 for k ∈ keys(T.m)))
-@test_throws AssertionError rebuild(T, :node_ordering, reverse(T.node_ordering))  # stale mrange
+P = T.partition
+@test_throws AssertionError rebuild(
+	T,
+	:partition,
+	BlockPartition(P.node_ordering, IndexedVector{Int}(k => v + 1 for (k, v) ∈ P.m), P.n),
+)
+@test Matrix(rebuild(T, :tree, Tree(T.tree.graph, 4))) ≈ Matrix(T)  # any root works
 
 # Tree
 @test fields(rebuild(tree)) == fields(tree)
-@test_throws AssertionError rebuild(tree, :tree_depth, tree.tree_depth + 1)
 @test_throws AssertionError rebuild(tree, :root, first(tree.children[tree.root]))
 @test_throws AssertionError rebuild(tree, :levels, reverse(tree.levels))
 

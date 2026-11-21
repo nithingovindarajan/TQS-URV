@@ -85,19 +85,18 @@ for k ∈ 1:NO_TRIALS
 	node4 = Spinner{Float64}(id, neighbors, trans, inp, out, D)
 
 	# TQS matrix
-	T = TQSMatrix([node1, node2, node3, node4])
-	tree = construct_tree(T.adjacency_list, root)
+	T = TQSMatrix(GIRSRepresentation([node1, node2, node3, node4]), root)
 
 	# form the dense graph partitioned matrix
-	TG = GraphPartitionedMatrix(T, tree)
+	TG = GraphPartitionedMatrix(T)
 
 	# Form again TQS realization
 	tol = 1E-12
 	ρ_max = Inf
-	TG_TQS, tree, _ = TQSMatrix(TG, root, tol, ρ_max)
+	TG_TQS, _ = TQSMatrix(TG, root, tol, ρ_max)
 
 	# assess error
-	append!(error, relative_error(TG.mat, Matrix(TG_TQS, tree)))
+	append!(error, relative_error(TG.mat, Matrix(TG_TQS)))
 
 end
 

@@ -14,7 +14,7 @@ StateGraph{Scalar <: Number} = Dict{Int, Dict{Int, Vector{Scalar}}}
 function StateGraph{Scalar}(T::TQSMatrix) where {Scalar <: Number}
 	# creates a Stategraph with zero entries
 	stategraph = StateGraph{Scalar}()
-	for (node, neighbors) ∈ T.adjacency_list
+	for (node, neighbors) ∈ T.tree.graph.adjacency_list
 		stategraph[node] = Dict(
 			neighbor => zeros(Scalar, T.spinners[node].p_in[neighbor]) for
 			neighbor ∈ neighbors
@@ -25,11 +25,11 @@ end
 
 
 """
-	*(T::TQSMatrix, x::Vector, tree::Tree)
-	*(T::TQSMatrix, X::AbstractMatrix, tree::Tree)
+	*(T::TQSMatrix, x::Vector)
+	*(T::TQSMatrix, X::AbstractMatrix)
 
-Compute `b = T * x` without forming `T` densely. `tree` must come from
-`construct_tree(T, root)`, and any root works. The computation has three stages:
+Compute `b = T * x` without forming `T` densely. The sweeps follow the tree
+`T.tree`; any root gives the same result. The computation has three stages:
 
 1. **Diagonal**: `b[i] = D_i * x[i]` for every node.
 2. **Upsweep** (leaves → root): every node `i` sends its parent `j` the state
@@ -41,7 +41,9 @@ Compute `b = T * x` without forming `T` densely. `tree` must come from
 
 The matrix form applies the vector product to every column of `X`.
 """
-function Base.:*(T::TQSMatrix, x::Vector, tree::Tree)
+function Base.:*(T::TQSMatrix, x::Vector)
+	tree = T.tree
+	mrange, nrange = T.partition.mrange, T.partition.nrange
 
 	#check input correctness
 	@assert size(T, 2) == length(x)
@@ -52,19 +54,19 @@ function Base.:*(T::TQSMatrix, x::Vector, tree::Tree)
 	h = StateGraph{type_b}(T)
 
 	# diagonal stage
-	for node ∈ eachindex(T.node_ordering)
-		b[T.mrange[node]] = T.spinners[node].D * x[T.nrange[node]]
+	for node ∈ T.partition.node_ordering
+		b[mrange[node]] = T.spinners[node].D * x[nrange[node]]
 	end
 
 	# Upsweep stage: from leaves to the root
 	for l ∈ length(tree.levels):-1:2
 		for i ∈ tree.levels[l]
 			j = tree.parent[i]
-			h[j][i] += T.spinners[i].inp[j] * x[T.nrange[i]]   #input contribution
+			h[j][i] += T.spinners[i].inp[j] * x[nrange[i]]   #input contribution
 			for w ∈ tree.children[i]                             #children state contribution
 				h[j][i] += T.spinners[i].trans[j, w] * h[i][w]
 			end
-			b[T.mrange[j]] += T.spinners[j].out[i] * h[j][i]
+			b[mrange[j]] += T.spinners[j].out[i] * h[j][i]
 		end
 	end
 
@@ -72,7 +74,7 @@ function Base.:*(T::TQSMatrix, x::Vector, tree::Tree)
 	for l ∈ 2:length(tree.levels)
 		for i ∈ tree.levels[l]
 			j = tree.parent[i]
-			h[i][j] += T.spinners[j].inp[i] * x[T.nrange[j]]    # input contribution
+			h[i][j] += T.spinners[j].inp[i] * x[nrange[j]]    # input contribution
 			for s ∈ tree.siblings[i]                              # sibling contribution
 				h[i][j] += T.spinners[j].trans[i, s] * h[j][s]
 			end
@@ -80,15 +82,15 @@ function Base.:*(T::TQSMatrix, x::Vector, tree::Tree)
 			if !isnothing(k)
 				h[i][j] += T.spinners[j].trans[i, k] * h[j][k]  # grandparent contribution
 			end
-			b[T.mrange[i]] += T.spinners[i].out[j] * h[i][j]
+			b[mrange[i]] += T.spinners[i].out[j] * h[i][j]
 		end
 	end
 
 	return b
 end
 
-function Base.:*(T::TQSMatrix, X::AbstractMatrix, tree::Tree)
-	return mapslices(x -> *(T, x, tree), X; dims = 1)
+function Base.:*(T::TQSMatrix, X::AbstractMatrix)
+	return mapslices(x -> T * x, X; dims = 1)
 end
 
 
@@ -97,33 +99,22 @@ end
 #######################
 
 """
-	Matrix(T::TQSMatrix, tree::Tree)
+	Matrix(T::TQSMatrix)
 
 Form the dense `M × N` matrix by multiplying `T` with the identity. This is
 meant for testing and error checks only.
 """
-function Base.:Matrix(T::TQSMatrix, tree::Tree)
-	return *(T, Matrix{eltype(T)}(I, size(T, 2), size(T, 2)), tree)
+function Base.:Matrix(T::TQSMatrix)
+	return T * Matrix{eltype(T)}(I, size(T, 2), size(T, 2))
 end
 
 
 """
-	GraphPartitionedMatrix(T::TQSMatrix, tree::Tree)
+	GraphPartitionedMatrix(T::TQSMatrix)
 
 Densify `T` and wrap the result in a [`GraphPartitionedMatrix`](@ref) with the
-same graph and block partitioning. Useful as input to the construction algorithm.
+same graph and block partition. Useful as input to the construction algorithm.
 """
-function GraphPartitionedMatrix(T::TQSMatrix, tree::Tree)
-	# convert to dense matrix
-	Tdense = Matrix(T, tree)
-
-	# equip dense matrix with graph
-	TG = GraphPartitionedMatrix(
-		Tdense,
-		T.node_ordering,
-		[T.m[k] for k ∈ T.node_ordering],
-		[T.n[k] for k ∈ T.node_ordering],
-		T.adjacency_list,
-	)
-	return TG
+function GraphPartitionedMatrix(T::TQSMatrix)
+	return GraphPartitionedMatrix{eltype(T)}(Matrix(T), T.tree.graph, T.partition)
 end
