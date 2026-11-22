@@ -104,10 +104,13 @@ end
 
 """
 	TQSMatrix(A::GraphPartitionedMatrix, root, tol, ρ_max) -> (T, ρ)
+	TQSMatrix(A::GraphPartitionedMatrix, tree::AbstractRootedTree, tol, ρ_max) -> (T, ρ)
 
 **Construction algorithm.** Compute a (near-)minimal TQS representation of the
-dense graph-partitioned matrix `A`, using `root` as the root of the tree. The
-graph of `A` must be connected and acyclic.
+dense graph-partitioned matrix `A` on the rooted tree `tree`, which must be on the
+graph of `A`. With `root`, the tree is `RootOrientedTree(A.graph, root)`. The
+graph of `A` must be connected and acyclic. The sweeps follow
+[`upsweep_rounds`](@ref); the root and orientation do not change the ranks.
 
 Every directed edge `i → j` gets a low-rank factorization of a matrix `F`. `F` is
 built from the Hankel block of the edge, reusing factorizations already computed
@@ -128,13 +131,17 @@ factors give the generators.
 - `ρ_max`: maximum state dimension per edge (`Inf` for unlimited).
 
 # Returns
-- `T`: the resulting `TQSMatrix`, with tree `Tree(A.graph, root)`.
+- `T`: the resulting `TQSMatrix`, with tree `tree`.
 - `ρ`: `Dict{Tuple{Int,Int},Int}` with the state dimension of each directed edge `(i, j)`.
 """
 function TQSMatrix(A::GraphPartitionedMatrix, root::Int, tol, ρ_max)
+	# constructing the tree checks that the graph is connected and acyclic
+	return TQSMatrix(A, RootOrientedTree(A.graph, root), tol, ρ_max)
+end
 
-	# construct tree (checks that the graph is connected and acyclic)
-	tree = Tree(A.graph, root)
+function TQSMatrix(A::GraphPartitionedMatrix, tree::AbstractRootedTree, tol, ρ_max)
+
+	@assert tree.graph == A.graph
 	nodes = A.partition.node_ordering
 	m, n = A.partition.m, A.partition.n
 	Scalar = eltype(A)
@@ -154,8 +161,9 @@ function TQSMatrix(A::GraphPartitionedMatrix, root::Int, tol, ρ_max)
 	ρ = Dict{Tuple{Int, Int}, Int}()
 
 	# Upsweep stage: from leaves to the root
-	for l ∈ length(tree.levels):-1:2
-		for i ∈ tree.levels[l]
+	rounds = upsweep_rounds(tree)
+	for group ∈ rounds
+		for i ∈ group
 
 			# parent and children
 			j, w = tree.parent[i], tree.children[i]
@@ -194,8 +202,8 @@ function TQSMatrix(A::GraphPartitionedMatrix, root::Int, tol, ρ_max)
 	end
 
 	# Downsweep stage: from root to the leaves
-	for l ∈ 2:length(tree.levels)
-		for i ∈ tree.levels[l]
+	for group ∈ Iterators.reverse(rounds)
+		for i ∈ group
 			# parent and children
 			j = tree.parent[i]
 			k = tree.parent[j]

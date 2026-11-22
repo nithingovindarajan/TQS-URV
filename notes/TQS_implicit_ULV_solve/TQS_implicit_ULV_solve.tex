@@ -1324,11 +1324,13 @@ $\pi(k)=k$ otherwise, the AST-pruned tree $\tilde{\mathbb{G}}$ has
 and the same root $\pi(r)$.
 \end{definition}
 
-\vspace{1mm}
-Two differences with the level-based version:
-\begin{itemize}
+Three differences with the level-based version:
+\begin{itemize}\setlength{\itemsep}{0pt}
 \item leaves at different depths are pruned in the same round;
-\item $\bar{p}$ need not be a leaf of $\tilde{\mathbb{G}}$: it keeps its remaining children $e_1,\dots,e_f$.
+\item $\bar{p}$ need not be a leaf of $\tilde{\mathbb{G}}$: it keeps its remaining children $e_1,\dots,e_f$;
+\item rounds count \emph{up from the leaves}: $k$ is pruned in round $h(k)+1$, with $h(k)$ the \emph{height} of $k$
+  (longest path from $k$ down to a leaf). For no root are they levels: root $12$ gives $\mathbb{V}_3=\{6,7,8\}$, but
+  round $1$ prunes $\{1,2,3,4,6,7,8,11\}$.
 \end{itemize}
 The leaf operations, the reduced unknown and right-hand side, the reduction theorem and
 Algorithm~\ref{alg:tqssolve} hold verbatim with $\mathbb{V}_L$ replaced by $\mathbb{L}$. Only the spinner of $\bar{p}$

@@ -416,7 +416,7 @@ graph_cyclic = UndirectedGraph(adj_list_nodeset_cyclic)
 #              |
 #         4 -- 6 -- 5
 
-tree = Tree(graph_acyclic, 1)
+tree = RootOrientedTree(graph_acyclic, 1)
 @test depth(tree) == 2
 @test Set(tree.levels[1]) == Set([1])
 @test Set(tree.levels[2]) == Set([3, 2, 6])
@@ -450,7 +450,7 @@ tree = Tree(graph_acyclic, 1)
 @test Set(tree.descendants_complement[6]) == Set([1, 2, 3])
 
 
-tree = Tree(graph_acyclic, 2)
+tree = RootOrientedTree(graph_acyclic, 2)
 @test depth(tree) == 3
 @test Set(tree.levels[1]) == Set([2])
 @test Set(tree.levels[2]) == Set([1])
@@ -695,9 +695,9 @@ P = T.partition
 	:partition,
 	BlockPartition(P.node_ordering, IndexedVector{Int}(k => v + 1 for (k, v) ∈ P.m), P.n),
 )
-@test Matrix(rebuild(T, :tree, Tree(T.tree.graph, 4))) ≈ Matrix(T)  # any root works
+@test Matrix(rebuild(T, :tree, RootOrientedTree(T.tree.graph, 4))) ≈ Matrix(T)  # any root works
 
-# Tree
+# RootOrientedTree
 @test fields(rebuild(tree)) == fields(tree)
 @test_throws AssertionError rebuild(tree, :root, first(tree.children[tree.root]))
 @test_throws AssertionError rebuild(tree, :levels, reverse(tree.levels))
@@ -722,9 +722,9 @@ P = T.partition
 @test !is_connected_acyclic(UndirectedGraph(Dict(1 => [2], 2 => [1], 3 => Int[])))  # not connected
 
 # a tree needs a connected acyclic graph
-@test_throws AssertionError Tree(graph_cyclic, 1)
-@test_throws AssertionError Tree(UndirectedGraph(Dict(1 => [2], 2 => [1], 3 => Int[])), 1)
-@test depth(Tree(UndirectedGraph(Dict(7 => Int[])), 7)) == 0
+@test_throws AssertionError RootOrientedTree(graph_cyclic, 1)
+@test_throws AssertionError RootOrientedTree(UndirectedGraph(Dict(1 => [2], 2 => [1], 3 => Int[])), 1)
+@test depth(RootOrientedTree(UndirectedGraph(Dict(7 => Int[])), 7)) == 0
 
 
 ########################
@@ -784,3 +784,306 @@ T5 = TQSMatrix(T, 5)
 @test T5.tree.root == 5 && depth(T5.tree) == 3
 @test Matrix(T5) ≈ Matrix(T)
 @test GraphPartitionedMatrix(T5).partition == T.partition
+
+
+######################################################
+# Test: onion peeling, center and leaf-oriented trees #
+######################################################
+
+# tree of the AST slides (TQS_implicit_ULV_solve):
+#   1,2,3,4 -- 5 -- 12 -- 10 -- 9 -- 6,7,8
+#                   |
+#                   11
+edges_ast = [(1, 5), (2, 5), (3, 5), (4, 5), (5, 12), (11, 12), (12, 10), (10, 9), (6, 9), (7, 9), (8, 9)]
+adjacency_ast = Dict{Int, Vector{Int}}(k => Int[] for k ∈ 1:12)
+for (i, j) ∈ edges_ast
+	push!(adjacency_ast[i], j)
+	push!(adjacency_ast[j], i)
+end
+graph_ast = UndirectedGraph(adjacency_ast)
+
+# onion peeling needs no root; the center is the pair {10, 12}
+@test peel_layers(graph_ast) == [[1, 2, 3, 4, 6, 7, 8, 11], [5, 9], [10, 12]]
+@test center(graph_ast) == [10, 12]
+@test_throws AssertionError peel_layers(graph_cyclic)
+
+# single center, single node, two nodes
+path3 = UndirectedGraph(Dict(1 => [2], 2 => [1, 3], 3 => [2]))
+@test peel_layers(path3) == [[1, 3], [2]] && center(path3) == [2]
+@test peel_layers(UndirectedGraph(Dict(7 => Int[]))) == [[7]]
+@test center(UndirectedGraph(Dict(1 => [2], 2 => [1]))) == [1, 2]
+@test center(graph_acyclic) == [1, 6]
+
+# leaf-oriented tree: default root is the smaller center node
+ltree = LeafOrientedTree(graph_ast)
+@test ltree.root == 10
+@test ltree.leaf_levels == [[1, 2, 3, 4, 6, 7, 8, 11], [5, 9], [12], [10]]
+@test upsweep_rounds(ltree) == [[1, 2, 3, 4, 6, 7, 8, 11], [5, 9], [12]]
+@test LeafOrientedTree(path3).leaf_levels == [[1, 3], [2]]
+@test depth(LeafOrientedTree(UndirectedGraph(Dict(7 => Int[])))) == 0
+
+# the graph must be connected and acyclic (a non-center root is rejected by the inner constructor, below)
+@test_throws AssertionError LeafOrientedTree(graph_cyclic)
+
+# root-oriented: levels counted down from the root; any root allowed
+rtree = RootOrientedTree(graph_ast, 10)
+@test [Set(r) for r ∈ upsweep_rounds(rtree)] == [Set([1, 2, 3, 4]), Set([5, 6, 7, 8, 11]), Set([9, 12])]
+@test depth(rtree) == depth(ltree) == 3
+@test depth(RootOrientedTree(graph_ast, 6)) == 5
+
+# same parents and children for the same root, only the rounds differ
+@test fields(ltree)[[1, 2, 4, 5, 6, 7, 8]] == fields(rtree)[[1, 2, 4, 5, 6, 7, 8]]
+
+# every node comes after its children in the upsweep rounds
+for tree_ ∈ (ltree, rtree, RootOrientedTree(graph_ast, 12), RootOrientedTree(graph_ast, 6))
+	pos = Dict(k => r for (r, ks) ∈ enumerate(upsweep_rounds(tree_)) for k ∈ ks)
+	@test all(pos[c] < pos[k] for k ∈ keys(pos) for c ∈ tree_.children[k])
+end
+
+# inner constructor checks
+@test fields(rebuild(ltree)) == fields(ltree)
+@test_throws AssertionError rebuild(ltree, :leaf_levels, [[1, 2, 3, 4, 6, 7, 8, 11, 5, 9], [12], [10]])
+@test_throws AssertionError rebuild(ltree, :leaf_levels, reverse(ltree.leaf_levels))
+r6 = RootOrientedTree(graph_ast, 6)  # a valid rooted tree, but 6 is not a center node
+@test_throws AssertionError LeafOrientedTree(
+	graph_ast, 6, [[1]], r6.parent, r6.children, r6.siblings, r6.descendants, r6.descendants_complement,
+)
+
+
+#####################################################
+# Test: root- and leaf-oriented TQS matrices agree #
+#####################################################
+
+# mat-vec: the orientation does not change the matrix
+@test T isa RootOrientedTQSMatrix{Float64}
+TL = TQSMatrix(T, LeafOrientedTree(T.tree.graph))
+@test TL isa LeafOrientedTQSMatrix{Float64}
+@test eltype(TL) == Float64
+@test TL.spinners == T.spinners
+x = randn(size(T, 2))
+@test TL * x ≈ T * x
+@test Matrix(TL) ≈ Tdense
+@test fields(rebuild(TL)) == fields(TL)
+@test Matrix(TQSMatrix(GIRSRepresentation(T), LeafOrientedTree(T.tree.graph))) ≈ Tdense
+
+# construction: same matrix and same ranks for both orientations
+TL_TQS, ρL = TQSMatrix(TG, LeafOrientedTree(TG.graph), tol, ρ_max)
+@test TL_TQS isa LeafOrientedTQSMatrix{Float64}
+@test Matrix(TL_TQS) ≈ Tdense
+@test ρL == ρ
+@test_throws AssertionError TQSMatrix(TG, LeafOrientedTree(graph_ast), tol, ρ_max)
+
+# a dense matrix on the AST tree, built with every orientation and center
+m_ast = fill(3, 12)
+n_ast = fill(2, 12)
+A_ast = GraphPartitionedMatrix(randn(sum(m_ast), sum(n_ast)), collect(1:12), m_ast, n_ast, adjacency_ast)
+T_r10, ρ_r10 = TQSMatrix(A_ast, 10, tol, ρ_max)
+x = randn(size(A_ast.mat, 2))
+for tree_ ∈ (LeafOrientedTree(graph_ast), RootOrientedTree(graph_ast, 12), RootOrientedTree(graph_ast, 6))
+	T_, ρ_ = TQSMatrix(A_ast, tree_, tol, ρ_max)
+	@test ρ_ == ρ_r10
+	@test Matrix(T_) ≈ A_ast.mat
+	@test T_ * x ≈ A_ast.mat * x
+end
+
+
+##########################
+# Test: implicit ULV solve #
+##########################
+
+# random square TQS matrix on the graph `adj`: block sizes m[k], state dimensions
+# ρ[(i, j)] on the edge i → j
+function random_square_tqs(adj, m, ρ; T = Float64)
+	spinners = Spinner{T}[]
+	for (k, nb) ∈ adj
+		trans = [
+			j == l ? ZeroMatrix{T}(ρ[(k, j)], ρ[(l, k)]) : 0.5 * randn(T, ρ[(k, j)], ρ[(l, k)])
+			for j ∈ nb, l ∈ nb
+		]
+		inp = [randn(T, ρ[(k, j)], m[k]) for j ∈ nb]
+		out = [randn(T, m[k], ρ[(j, k)]) for j ∈ nb]
+		push!(spinners, Spinner{T}(k, collect(nb), trans, inp, out, randn(T, m[k], m[k]) + 2I))
+	end
+	return GIRSRepresentation(spinners)
+end
+random_ρ(adj, r) = Dict((i, j) => rand(r) for (i, nb) ∈ adj for j ∈ nb)
+
+# AST tree: both orientations, roots at the center and at a leaf, real and complex,
+# with blocks larger and smaller than the state dimensions (compression or not)
+for T_ ∈ (Float64, ComplexF64), trial ∈ 1:3
+	G_ = random_square_tqs(adjacency_ast, Dict(k => rand(1:6) for k ∈ 1:12), random_ρ(adjacency_ast, 1:3); T = T_)
+	b_ = randn(T_, size(G_, 1))
+	x_ref = Matrix(TQSMatrix(G_, 12)) \ b_
+	for tree_ ∈ (LeafOrientedTree(G_.graph), RootOrientedTree(G_.graph, 12), RootOrientedTree(G_.graph, 6))
+		@test ulvsolve(TQSMatrix(G_, tree_), b_) ≈ x_ref
+	end
+end
+
+# a path (the center is a single node) and a single node
+adjacency_path = Dict(k => [j for j ∈ (k - 1, k + 1) if 1 <= j <= 7] for k ∈ 1:7)
+G_ = random_square_tqs(adjacency_path, Dict(k => rand(2:5) for k ∈ 1:7), random_ρ(adjacency_path, 1:2))
+b_ = randn(size(G_, 1))
+@test center(G_.graph) == [4]
+@test ulvsolve(TQSMatrix(G_, LeafOrientedTree(G_.graph)), b_) ≈ Matrix(TQSMatrix(G_, 1)) \ b_
+@test ulvsolve(TQSMatrix(G_, 1), b_) ≈ Matrix(TQSMatrix(G_, 1)) \ b_
+G_ = random_square_tqs(Dict(7 => Int[]), Dict(7 => 4), Dict{Tuple{Int, Int}, Int}())
+b_ = randn(4)
+@test ulvsolve(TQSMatrix(G_, LeafOrientedTree(G_.graph)), b_) ≈ G_.spinners[7].D \ b_
+
+# no compression anywhere (every block at most as large as its state dimensions)
+G_ = random_square_tqs(adjacency_ast, Dict(k => 1 for k ∈ 1:12), random_ρ(adjacency_ast, 2:3))
+b_ = randn(size(G_, 1))
+@test ulvsolve(TQSMatrix(G_, LeafOrientedTree(G_.graph)), b_) ≈ Matrix(TQSMatrix(G_, 12)) \ b_
+
+# only square blocks are supported
+@test_throws AssertionError ulvsolve(T, randn(size(T, 1)))
+
+
+###########################
+# Test: sparse embedding #
+###########################
+
+using SparseArrays
+
+# random GIRS representation: blocks m[k] × n[k], states ρ[(i, j)], optional bounce-backs
+function random_girs(adj, m, n, ρ; T = Float64, bounce = false)
+	spinners = Spinner{T}[]
+	for (k, nb) ∈ adj
+		trans = [
+			j == l && !bounce ? ZeroMatrix{T}(ρ[(k, j)], ρ[(l, k)]) : 0.3 * randn(T, ρ[(k, j)], ρ[(l, k)])
+			for j ∈ nb, l ∈ nb
+		]
+		inp = [randn(T, ρ[(k, j)], n[k]) for j ∈ nb]
+		out = [randn(T, m[k], ρ[(j, k)]) for j ∈ nb]
+		D = m[k] == n[k] ? randn(T, m[k], n[k]) + 2I : randn(T, m[k], n[k])
+		push!(spinners, Spinner{T}(k, collect(nb), trans, inp, out, D))
+	end
+	return GIRSRepresentation(spinners)
+end
+
+# the matrix the embedding defines, by eliminating the states: D + Out (I - Trans)^{-1} Inp
+function eliminate_states(E)
+	A = Matrix(E.Ξ)
+	L, P = E.lifted_partition, E.partition
+	xr = vcat([first(L.mrange[j]):first(L.mrange[j])+P.m[j]-1 for j ∈ P.node_ordering]...)
+	xc = vcat([E.x_index[j] for j ∈ P.node_ordering]...)
+	hr, hc = setdiff(1:size(A, 1), xr), setdiff(1:size(A, 2), xc)
+	return A[xr, xc] - A[xr, hc] * (A[hr, hc] \ A[hr, xc])
+end
+
+# block pattern of Ξ: (row node, column node) of every nonzero
+function block_pattern(E)
+	L = E.lifted_partition
+	row_node = Dict(r => j for j ∈ L.node_ordering for r ∈ L.mrange[j])
+	col_node = Dict(c => j for j ∈ L.node_ordering for c ∈ L.nrange[j])
+	rows, cols, _ = findnz(E.Ξ)
+	return Set((row_node[r], col_node[c]) for (r, c) ∈ zip(rows, cols))
+end
+graph_pattern(adj) = Set([(j, i) for (j, nb) ∈ adj for i ∈ nb] ∪ [(j, j) for j ∈ keys(adj)])
+
+# TQS matrices on the AST tree: Ξ θ = β solves T x = b, and eliminating the states gives T
+for T_ ∈ (Float64, ComplexF64)
+	m_ = Dict(k => rand(1:5) for k ∈ 1:12)
+	TQ = TQSMatrix(random_square_tqs(adjacency_ast, m_, random_ρ(adjacency_ast, 1:3); T = T_), 12)
+	E = SparseEmbedding(TQ)
+	@test E isa SparseEmbedding{T_} && eltype(E) == T_
+	@test size(E, 1) == size(E, 2) == size(TQ, 1) + sum(E.lifted_partition.m[j] - m_[j] for j ∈ 1:12)
+	@test block_pattern(E) == graph_pattern(adjacency_ast)
+	@test eliminate_states(E) ≈ Matrix(TQ)
+	bb = randn(T_, size(TQ, 1))
+	β_ = lift(E, bb)
+	@test β_[E.state_index[(5, 12)]] == zeros(T_, length(E.state_index[(5, 12)]))
+	@test extract(E, E.Ξ \ β_) ≈ Matrix(TQ) \ bb
+	@test fields(rebuild(E)) == fields(E)
+end
+
+# the embedding does not depend on the root or the orientation
+G_ = random_square_tqs(adjacency_ast, Dict(k => 3 for k ∈ 1:12), random_ρ(adjacency_ast, 1:2))
+@test SparseEmbedding(TQSMatrix(G_, 6)).Ξ == SparseEmbedding(TQSMatrix(G_, LeafOrientedTree(G_.graph))).Ξ ==
+	  SparseEmbedding(G_).Ξ
+
+# a GIRS representation with a cycle and bounce-back operators
+adjacency_cycle = Dict(1 => [2, 4], 2 => [1, 3, 5], 3 => [2, 4], 4 => [1, 3], 5 => [2])
+G_ = random_girs(adjacency_cycle, Dict(k => 3 for k ∈ 1:5), Dict(k => 3 for k ∈ 1:5), random_ρ(adjacency_cycle, 1:2); bounce = true)
+E = SparseEmbedding(G_)
+@test block_pattern(E) == graph_pattern(adjacency_cycle)
+b_ = randn(size(G_, 1))
+@test eliminate_states(E) * extract(E, E.Ξ \ lift(E, b_)) ≈ b_
+
+# only square blocks, even if the whole system is square
+@test_throws AssertionError SparseEmbedding(T)                         # m_j ≠ n_j and M ≠ N
+G_ = random_girs(adjacency_path, Dict(k => k % 3 + 2 for k ∈ 1:7), Dict(k => 3 for k ∈ 1:7), random_ρ(adjacency_path, 1:2))
+@test size(G_, 1) == size(G_, 2)
+@test_throws AssertionError SparseEmbedding(G_)                        # M == N, but m_j ≠ n_j
+
+# the graph is not stored: its directed edges are the keys of state_index
+E = SparseEmbedding(random_girs(adjacency_cycle, Dict(k => 2 for k ∈ 1:5), Dict(k => 2 for k ∈ 1:5), random_ρ(adjacency_cycle, 1:2)))
+@test Set(keys(E.state_index)) == Set((i, j) for (j, nb) ∈ adjacency_cycle for i ∈ nb)
+
+# the inner constructor checks the fields
+E = SparseEmbedding(TQSMatrix(random_square_tqs(adjacency_ast, Dict(k => 2 for k ∈ 1:12), random_ρ(adjacency_ast, 1:2)), 12))
+@test 6 ∉ adjacency_ast[1]
+@test_throws AssertionError rebuild(  # an entry in block (1, 6): breaks the pattern
+	E, :Ξ, E.Ξ + sparse([first(E.lifted_partition.mrange[1])], [first(E.lifted_partition.nrange[6])], [1.0], size(E)...),
+)
+@test_throws AssertionError rebuild(E, :x_index, Dict(j => r .+ 1 for (j, r) ∈ E.x_index))
+@test_throws AssertionError rebuild(E, :state_index, filter(p -> p.first != (5, 12), E.state_index))  # no reverse edge
+@test_throws AssertionError rebuild(E, :state_index, merge(E.state_index, Dict((1, 1) => 1:0)))       # self-loop
+P_ = E.partition
+@test_throws AssertionError rebuild(E, :partition, BlockPartition(P_.node_ordering, P_.m, Dict(k => v + 1 for (k, v) ∈ P_.n)))
+
+
+######################################################
+# Test: sparse solve (embedding + METIS + UMFPACK) #
+######################################################
+
+# TQS matrices on the AST tree, real and complex, both orientations, GIRS or TQS input
+for T_ ∈ (Float64, ComplexF64)
+	Gl = random_square_tqs(adjacency_ast, Dict(k => rand(1:5) for k ∈ 1:12), random_ρ(adjacency_ast, 1:3); T = T_)
+	TQ = TQSMatrix(Gl, LeafOrientedTree(Gl.graph))
+	bb = randn(T_, size(TQ, 1))
+	x_ref = Matrix(TQ) \ bb
+	@test sparsesolve(TQ, bb) ≈ x_ref
+	@test sparsesolve(TQSMatrix(Gl, 6), bb) ≈ x_ref
+	@test sparsesolve(Gl, bb) ≈ x_ref
+	@test sparsesolve(TQ, bb) ≈ ulvsolve(TQ, bb)
+
+	# the factorization: UMFPACK ordered by METIS, and θ as from a sparse direct solve
+	El = SparseEmbedding(TQ)
+	Fl = SparseEmbeddingLU(El)
+	@test Fl isa SparseEmbeddingLU{T_}
+	LSS_ = SparseArrays.LibSuiteSparse
+	@test Fl.F.info[LSS_.UMFPACK_ORDERING_USED+1] == LSS_.UMFPACK_ORDERING_METIS
+	@test Fl.F.info[LSS_.UMFPACK_STRATEGY_USED+1] == LSS_.UMFPACK_STRATEGY_SYMMETRIC
+	@test Fl \ lift(El, bb) ≈ El.Ξ \ lift(El, bb)
+
+	# one factorization, several right-hand sides
+	B_ = randn(T_, size(TQ, 1), 3)
+	@test all(sparsesolve(Fl, B_[:, t]) ≈ Matrix(TQ) \ B_[:, t] for t ∈ 1:3)
+end
+
+# a real matrix and a complex right-hand side
+Gl = random_square_tqs(adjacency_ast, Dict(k => 3 for k ∈ 1:12), random_ρ(adjacency_ast, 1:2))
+bb = randn(ComplexF64, size(Gl, 1))
+@test sparsesolve(Gl, bb) ≈ Matrix(TQSMatrix(Gl, 12)) \ bb
+
+# D^5 = 0 (zeros on the diagonal of Ξ), but T is nonsingular: UMFPACK pivots
+Gl.spinners[5].D .= 0
+TQ = TQSMatrix(Gl, 12)
+bb = randn(size(TQ, 1))
+@test sparsesolve(TQ, bb) ≈ Matrix(TQ) \ bb
+
+# a GIRS representation with a cycle and bounce-back operators
+G_ = random_girs(adjacency_cycle, Dict(k => 3 for k ∈ 1:5), Dict(k => 3 for k ∈ 1:5), random_ρ(adjacency_cycle, 1:2); bounce = true)
+E = SparseEmbedding(G_)
+bb = randn(size(G_, 1))
+@test sparsesolve(G_, bb) ≈ extract(E, E.Ξ \ lift(E, bb))
+@test eliminate_states(E) * sparsesolve(G_, bb) ≈ bb
+
+# a single node
+G_ = random_square_tqs(Dict(7 => Int[]), Dict(7 => 4), Dict{Tuple{Int, Int}, Int}())
+bb = randn(4)
+@test sparsesolve(G_, bb) ≈ G_.spinners[7].D \ bb
+
+# square blocks only
+@test_throws AssertionError sparsesolve(T, randn(size(T, 1)))

@@ -41,3 +41,6 @@ deps/deps.jl
 .idea/
 *.swp
 *~
+
+# Julia environment (Project.toml is enough; the Manifest depends on the Julia version)
+Manifest.toml

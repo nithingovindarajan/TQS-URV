@@ -15,14 +15,21 @@ Information moves between neighbouring nodes `i → j` through a *state* vector
 # Types
 
 - [`UndirectedGraph`](@ref): an undirected graph on integer node labels (cycles allowed).
-- [`Tree`](@ref): a connected acyclic `UndirectedGraph` together with a root.
+- [`AbstractRootedTree`](@ref): a connected acyclic `UndirectedGraph` together with
+  a root. Two orientations, which only differ in how the nodes are grouped into
+  parallel rounds:
+  - [`RootOrientedTree`](@ref): levels counted down from the root (any root).
+  - [`LeafOrientedTree`](@ref): leaf levels (k-leaves) counted up from the leaves,
+    i.e. onion peeling (the root is a [`center`](@ref) node).
 - [`BlockPartition`](@ref): how the rows and columns are split into one block per node.
 - [`GraphPartitionedMatrix`](@ref): a dense matrix with a graph and a block partition.
 - [`Spinner`](@ref): the generators of a single node.
 - [`GIRSRepresentation`](@ref): spinners on any graph (cycles and bounce-back
   operators allowed).
-- [`TQSMatrix`](@ref): spinners on a `Tree`, without bounce-back operators. Same
-  fields as a `GIRSRepresentation`, with the graph replaced by a tree.
+- [`TQSMatrix`](@ref): spinners on a rooted tree, without bounce-back operators.
+  Same fields as a `GIRSRepresentation`, with the graph replaced by a rooted tree.
+  The tree type is a type parameter: [`RootOrientedTQSMatrix`](@ref) and
+  [`LeafOrientedTQSMatrix`](@ref).
 
 # Typical workflow
 
@@ -30,10 +37,13 @@ Information moves between neighbouring nodes `i → j` through a *state* vector
 A = GraphPartitionedMatrix(mat, nodes, m, n, adjacency_list)
 T, ρ = TQSMatrix(A, root, 1e-12, Inf)          # construct TQS representation
 b = T * x                                      # fast mat-vec
+x = ulvsolve(T, b)                             # fast solve (square blocks only)
+x = sparsesolve(T, b)                          # sparse embedding: METIS order, UMFPACK LU (also for GIRS)
 relative_error(A.mat, Matrix(T))               # check accuracy
 
 G = GIRSRepresentation([spinner1, spinner2, ...])   # spinners on a graph
 T = TQSMatrix(G, root)                              # requires a tree, no bounce-backs
+T = TQSMatrix(G, LeafOrientedTree(G.graph))         # leaf-oriented, rooted at the center
 ```
 
 # Notation used throughout
@@ -53,16 +63,22 @@ module TQSMatrices
 ###########
 export ZeroMatrix, IndexedVector, IndexedMatrix
 export BlockPartition, construct_range_vec
-export UndirectedGraph, is_connected_acyclic, Tree, depth
+export UndirectedGraph, is_connected_acyclic, peel_layers, center
+export AbstractRootedTree, RootOrientedTree, LeafOrientedTree, upsweep_rounds, depth
 export GraphPartitionedMatrix, get_block, get_hankelblock
 export Spinner, GIRS_is_consistent, has_no_bounce_back_operators
-export GIRSRepresentation, TQSMatrix, StateGraph, TransGraph
+export GIRSRepresentation, TQSMatrix, RootOrientedTQSMatrix, LeafOrientedTQSMatrix
+export StateGraph, TransGraph
+export ulvsolve
+export SparseEmbedding, lift, extract
+export sparsesolve, SparseEmbeddingLU
 export HankelFactorization, Xblock, Yblock, lowrankapprox, relative_error
 
 ############
 # packages #
 ############
 using LinearAlgebra
+using SparseArrays
 using IterTools
 using Base.Iterators
 
@@ -76,5 +92,8 @@ include("girs.jl")
 include("tqsmatrix.jl")
 include("matvec.jl")
 include("construction.jl")
+include("ulvsolve.jl")
+include("sparse_embedding.jl")
+include("sparsesolve.jl")
 
 end

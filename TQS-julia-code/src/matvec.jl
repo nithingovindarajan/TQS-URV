@@ -29,7 +29,8 @@ end
 	*(T::TQSMatrix, X::AbstractMatrix)
 
 Compute `b = T * x` without forming `T` densely. The sweeps follow the tree
-`T.tree`; any root gives the same result. The computation has three stages:
+`T.tree` in the order of [`upsweep_rounds`](@ref); any root and either
+orientation give the same result. The computation has three stages:
 
 1. **Diagonal**: `b[i] = D_i * x[i]` for every node.
 2. **Upsweep** (leaves → root): every node `i` sends its parent `j` the state
@@ -59,10 +60,11 @@ function Base.:*(T::TQSMatrix, x::Vector)
 	end
 
 	# Upsweep stage: from leaves to the root
-	for l ∈ length(tree.levels):-1:2
-		for i ∈ tree.levels[l]
+	rounds = upsweep_rounds(tree)
+	for group ∈ rounds
+		for i ∈ group
 			j = tree.parent[i]
-			h[j][i] += T.spinners[i].inp[j] * x[nrange[i]]   #input contribution
+			h[j][i] +=T.spinners[i].inp[j] * x[nrange[i]]   #input contribution
 			for w ∈ tree.children[i]                             #children state contribution
 				h[j][i] += T.spinners[i].trans[j, w] * h[i][w]
 			end
@@ -71,8 +73,8 @@ function Base.:*(T::TQSMatrix, x::Vector)
 	end
 
 	# Downsweep stage: from root to the leaves
-	for l ∈ 2:length(tree.levels)
-		for i ∈ tree.levels[l]
+	for group ∈ Iterators.reverse(rounds)
+		for i ∈ group
 			j = tree.parent[i]
 			h[i][j] += T.spinners[j].inp[i] * x[nrange[j]]    # input contribution
 			for s ∈ tree.siblings[i]                              # sibling contribution
