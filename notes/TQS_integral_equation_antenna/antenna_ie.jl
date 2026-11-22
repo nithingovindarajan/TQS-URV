@@ -82,12 +82,13 @@ end
 	gmres(A, b, Minv; tol, maxit) -> (x, iterations, residual history)
 
 Full GMRES (Arnoldi with modified Gram-Schmidt, Givens rotations) for A M⁻¹ y = b, x = M⁻¹ y.
-Stops when ‖b - A x‖ ≤ tol ‖b‖.
+Stops when ‖b - A x‖ ≤ tol ‖b‖. Real or complex; A only needs `A * v`.
 """
 function gmres(A, b, Minv; tol = 1e-10, maxit = 400)
+	S = promote_type(eltype(A), eltype(b), Float64)
 	N = length(b); β = norm(b)
-	V = zeros(N, maxit + 1); H = zeros(maxit + 1, maxit)
-	cs = zeros(maxit); sn = zeros(maxit); g = zeros(maxit + 1); g[1] = β
+	V = zeros(S, N, maxit + 1); H = zeros(S, maxit + 1, maxit)
+	cs = zeros(S, maxit); sn = zeros(S, maxit); g = zeros(S, maxit + 1); g[1] = β
 	V[:, 1] = b / β
 	hist = [1.0]; k = 0
 	for j in 1:maxit
@@ -98,12 +99,12 @@ function gmres(A, b, Minv; tol = 1e-10, maxit = 400)
 		end
 		H[j+1, j] = norm(w); V[:, j+1] = w / H[j+1, j]
 		for i in 1:j-1
-			t = cs[i] * H[i, j] + sn[i] * H[i+1, j]
+			t = conj(cs[i]) * H[i, j] + conj(sn[i]) * H[i+1, j]
 			H[i+1, j] = -sn[i] * H[i, j] + cs[i] * H[i+1, j]; H[i, j] = t
 		end
-		r = hypot(H[j, j], H[j+1, j]); cs[j] = H[j, j] / r; sn[j] = H[j+1, j] / r
+		r = hypot(abs(H[j, j]), abs(H[j+1, j])); cs[j] = H[j, j] / r; sn[j] = H[j+1, j] / r
 		H[j, j] = r; H[j+1, j] = 0
-		g[j+1] = -sn[j] * g[j]; g[j] = cs[j] * g[j]
+		g[j+1] = -sn[j] * g[j]; g[j] = conj(cs[j]) * g[j]
 		push!(hist, abs(g[j+1]) / β)
 		hist[end] ≤ tol && break
 	end
@@ -114,11 +115,6 @@ end
 
 # ---------------------------------------------------------------- experiments
 maxrank(ρ) = maximum(values(ρ))
-function blockjacobi(A, nodes, p)
-	F = [lu(A[(k-1)*p+1:k*p, (k-1)*p+1:k*p]) for k in nodes]
-	return v -> vcat([F[k] \ v[(k-1)*p+1:k*p] for k in nodes]...)
-end
-
 function run(P, p, λ; tols = [1e-1, 1e-2, 1e-4, 1e-8], root = 1, verbose = true)
 	z, h, nodes, adj, bs = antenna(P, p)
 	A = kernelmatrix(z, h, λ)
@@ -132,8 +128,6 @@ function run(P, p, λ; tols = [1e-1, 1e-2, 1e-4, 1e-8], root = 1, verbose = true
 	rows = Any[]
 	_, it0, _ = gmres(A, f, identity)
 	push!(rows, ("none", "-", "-", it0))
-	_, itJ, _ = gmres(A, f, blockjacobi(A, nodes, p))
-	push!(rows, ("block Jacobi", "0", "-", itJ))
 	for ε in tols
 		T, ρ = TQSMatrix(G, root, ε, Inf)
 		relerr = opnorm(A - Matrix(T)) / opnorm(A)
@@ -170,12 +164,12 @@ function histories(P, p, λ, file)
 	A = kernelmatrix(z, h, λ)
 	G = GraphPartitionedMatrix(A, nodes, bs, bs, adj)
 	f = ones(length(z))
-	H = Dict("none" => gmres(A, f, identity)[3], "jacobi" => gmres(A, f, blockjacobi(A, nodes, p))[3])
+	H = Dict("none" => gmres(A, f, identity)[3])
 	for ε in (1e-2, 1e-4, 1e-8)
 		T, _ = TQSMatrix(G, 1, ε, Inf)
 		H[@sprintf("tqs%.0e", ε)] = gmres(A, f, v -> ulvsolve(T, v))[3]
 	end
-	keys_ = ["none", "jacobi", "tqs1e-02", "tqs1e-04", "tqs1e-08"]
+	keys_ = ["none", "tqs1e-02", "tqs1e-04", "tqs1e-08"]
 	L = maximum(length(H[k]) for k in keys_)
 	open(file, "w") do io
 		println(io, "it ", join(keys_, " "))

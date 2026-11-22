@@ -286,7 +286,7 @@ h\,|z_i-z_j|^\alpha, & i\neq j \quad\text{(midpoint rule)},\\[2pt]
 \displaystyle\int_{-h/2}^{h/2}|t|^\alpha\,dt=\frac{2\,(h/2)^{1+\alpha}}{1+\alpha}, & i=j \quad\text{(exact)}.
 \end{cases}
 \]
-$\mathrm{A}u=f$ with $\mathrm{A}=\mathrm{K}$: dense, $N\times N$, real symmetric.
+$\mathrm{K}u=f$: dense, $N\times N$, real symmetric.
 \end{frame}
 
 % --------------------------------------------------------------------------
@@ -350,9 +350,9 @@ $N$ & $\min_k|\mu_k|$ & $\operatorname{cond}(\mathrm{K})$ \\
 \begin{enumerate}
 \item \textbf{Chunking:} $p$ consecutive panels $\to$ one node ($p=8$); node $=$ $p$ unknowns
 \item \textbf{Graph:} edges between neighbouring chunks; junction hub $B$ $\to$ $C,L,R$.
-  \texttt{GraphPartitionedMatrix}: $\mathrm{A}$ with one $p\times p$ block per node pair
+  \texttt{GraphPartitionedMatrix}: $\mathrm{K}$ with one $p\times p$ block per node pair
 \item \textbf{Tree $\to$ TQS:} root at the base. \texttt{TQSMatrix}$(\cdot,1,\varepsilon,\infty)$ compresses each Hankel block
-  $\mathrm{A}(\textcolor{rest}{\overline{S(k)}},\textcolor{sub}{S(k)})$ by truncated SVD at tolerance $\varepsilon$; its rank is $\rho_{k,\mathcal P(k)}$
+  $\mathrm{K}(\textcolor{rest}{\overline{S(k)}},\textcolor{sub}{S(k)})$ by truncated SVD at tolerance $\varepsilon$; its rank is $\rho_{k,\mathcal P(k)}$
 \end{enumerate}
 {\scriptsize $S(k)$: subtree of $k$; $\mathcal P(k)$: parent of $k$}
 \end{column}
@@ -371,7 +371,7 @@ Fixed $N=4864$ ($608$ nodes), varying $\varepsilon$\\[1mm]
 \footnotesize
 \begin{tabular}{@{}rrrcc@{}}
 \toprule
-$\varepsilon$ & $\max\rho$ & mean $\rho$ & $\frac{\|\mathrm{A}-\mathrm{T}_\varepsilon\|_F}{\|\mathrm{A}\|_F}$ & memory \\
+$\varepsilon$ & $\max\rho$ & mean $\rho$ & $\frac{\|\mathrm{K}-\mathrm{T}_\varepsilon\|_F}{\|\mathrm{K}\|_F}$ & memory \\
 \midrule
 $10^{-1}$  & 1  & 1.0  & $1.0\cdot10^{-1}$  & 0.25\,\% \\
 $10^{-2}$  & 3  & 1.9  & $3.2\cdot10^{-2}$  & 0.34\,\% \\
@@ -414,34 +414,37 @@ $N$ & nodes & $\max\rho$ & mean $\rho$ \\
 \caption{TQS-preconditioned Krylov solve}
 \begin{algorithmic}[1]
 \State Build panels, midpoints and tree
-\State Assemble $\mathrm{A}$ densely \Comment{$O(N^2)$}
-\State $\mathrm{T}_\varepsilon\gets$ \texttt{TQSMatrix}$(\mathrm{A},1,\varepsilon,\infty)$
-\State $\mathrm{M}^{-1}v := $ \texttt{ulvsolve}$(\mathrm{T}_\varepsilon,v)$
-\State GMRES on $\mathrm{A}\mathrm{M}^{-1}y=f$, $x=\mathrm{M}^{-1}y$
+\State Build the TQS approximation $\mathrm{T}_\varepsilon\approx\mathrm{K}$ at tolerance $\varepsilon$
+\State Preconditioner $\mathrm{M}:=\mathrm{T}_\varepsilon$; apply $\mathrm{M}^{-1}v$ by a ULV solve
+\State GMRES on $\mathrm{K}\mathrm{M}^{-1}y=f$, then $x=\mathrm{M}^{-1}y$
+\Statex \hspace{\algorithmicindent}each mat-vec $\mathrm{K}v$ by a fast multiply exploiting the kernel structure
 \end{algorithmic}
 \end{algorithm}
 \begin{itemize}
 \item $\varepsilon$: SVD truncation tolerance; $\max\rho$: largest state dimension
-\item its: iterations to $\|f-\mathrm{A}x\|\le10^{-10}\|f\|$
-\item Baselines: none; block Jacobi ($\rho=0$)
-\item Code: \texttt{antenna\_ie.jl}
+\item its: iterations to $\|f-\mathrm{K}x\|\le10^{-10}\|f\|$
+\item Baseline: no preconditioner
+\item \textbf{In these tests only:} $\mathrm{T}_\varepsilon$ is built from the dense $\mathrm{K}$ ($O(N^2)$) and $\mathrm{K}v$ is a dense mat-vec. In practice neither $\mathrm{K}$ nor its dense mat-vec is formed.
 \end{itemize}
 \end{frame}
 
 % --------------------------------------------------------------------------
 \begin{frame}{GMRES: compression error and iterations}
 \small
-$\operatorname{cond}(\mathrm{A})$: $9.9\cdot10^{3}$, $2.8\cdot10^{4}$, $7.9\cdot10^{4}$.
-\vspace{2mm}
+$\operatorname{cond}(\mathrm{K})$: $9.9\cdot10^{3}$, $2.8\cdot10^{4}$, $7.9\cdot10^{4}$.\\[1mm]
+its: number of GMRES iterations $k$ until the relative residual satisfies
+\[
+\frac{\|f-\mathrm{K}x_k\|_2}{\|f\|_2}\le10^{-10},\qquad x_0=0,\ \text{no restarts}.
+\]
+\vspace{-2mm}
 \begin{center}
 \begin{tabular}{@{}lccccccc@{}}
 \toprule
 & & \multicolumn{2}{c}{$N=304$} & \multicolumn{2}{c}{$N=608$} & \multicolumn{2}{c}{$N=1216$} \\
 \cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(l){7-8}
-preconditioner & $\max\rho$ & $\frac{\|\mathrm{A}-\mathrm{T}_\varepsilon\|_2}{\|\mathrm{A}\|_2}$ & its & $\frac{\|\mathrm{A}-\mathrm{T}_\varepsilon\|_2}{\|\mathrm{A}\|_2}$ & its & $\frac{\|\mathrm{A}-\mathrm{T}_\varepsilon\|_2}{\|\mathrm{A}\|_2}$ & its \\
+preconditioner & $\max\rho$ & $\frac{\|\mathrm{K}-\mathrm{T}_\varepsilon\|_2}{\|\mathrm{K}\|_2}$ & its & $\frac{\|\mathrm{K}-\mathrm{T}_\varepsilon\|_2}{\|\mathrm{K}\|_2}$ & its & $\frac{\|\mathrm{K}-\mathrm{T}_\varepsilon\|_2}{\|\mathrm{K}\|_2}$ & its \\
 \midrule
 none & -- & -- & 59 & -- & 78 & -- & 104 \\
-block Jacobi & 0 & -- & 71 & -- & 101 & -- & 135 \\
 TQS, $\varepsilon=10^{-1}$ & 1 & $5.5\cdot10^{-2}$ & 41 & $5.8\cdot10^{-2}$ & 54 & $6.0\cdot10^{-2}$ & 70 \\
 TQS, $\varepsilon=10^{-2}$ & 3 & $7.2\cdot10^{-3}$ & 20 & $7.5\cdot10^{-3}$ & 27 & $7.8\cdot10^{-3}$ & 36 \\
 TQS, $\varepsilon=10^{-4}$ & 10 & $6.6\cdot10^{-5}$ & 6 & $7.7\cdot10^{-5}$ & 7 & $1.0\cdot10^{-4}$ & 9 \\
@@ -449,11 +452,6 @@ TQS, $\varepsilon=10^{-8}$ & 24--27 & $7.6\cdot10^{-9}$ & 2 & $5.1\cdot10^{-9}$ 
 \bottomrule
 \end{tabular}
 \end{center}
-\begin{itemize}
-\item Without preconditioner: iterations grow with $N$
-\item TQS, $\varepsilon=10^{-4}$ ($\max\rho=10$): under $10$ iterations
-\item Block Jacobi is worse than none
-\end{itemize}
 \end{frame}
 
 % --------------------------------------------------------------------------
@@ -462,16 +460,174 @@ TQS, $\varepsilon=10^{-8}$ & 24--27 & $7.6\cdot10^{-9}$ & 2 & $5.1\cdot10^{-9}$ 
 \begin{tikzpicture}
 \begin{semilogyaxis}[
   width=0.82\textwidth, height=0.62\textheight,
-  xlabel={GMRES iteration}, ylabel={$\|f-\mathrm{A}x_k\|/\|f\|$},
-  ymin=1e-11, ymax=2, xmin=0, xmax=140,
+  xlabel={GMRES iteration}, ylabel={$\|f-\mathrm{K}x_k\|/\|f\|$},
+  ymin=1e-11, ymax=2, xmin=0, xmax=110,
   legend pos=north east, legend style={font=\scriptsize}, legend cell align=left,
   unbounded coords=jump, grid=major, grid style={gray!20}]
 \addplot[black, thick] table[x=it,y=none] {gmres_history.dat};
-\addplot[gray, thick, dashed] table[x=it,y=jacobi] {gmres_history.dat};
 \addplot[orange!80!black, thick] table[x=it,y=tqs1e-02] {gmres_history.dat};
 \addplot[rest, thick] table[x=it,y=tqs1e-04] {gmres_history.dat};
 \addplot[sub, thick, mark=*, mark size=1pt] table[x=it,y=tqs1e-08] {gmres_history.dat};
-\legend{none, block Jacobi, {TQS $\varepsilon=10^{-2}$ ($\max\rho=3$)}, {TQS $\varepsilon=10^{-4}$ ($\max\rho=10$)}, {TQS $\varepsilon=10^{-8}$ ($\max\rho=27$)}}
+\legend{none, {TQS $\varepsilon=10^{-2}$ ($\max\rho=3$)}, {TQS $\varepsilon=10^{-4}$ ($\max\rho=10$)}, {TQS $\varepsilon=10^{-8}$ ($\max\rho=27$)}}
+\end{semilogyaxis}
+\end{tikzpicture}
+\end{frame}
+
+\section{The Helmholtz problem: Galerkin BEM}
+
+% --------------------------------------------------------------------------
+\begin{frame}{Galerkin discretization of the single-layer equation}
+\small
+Same panels $\Gamma_1,\dots,\Gamma_N$ (length $h=1/P$, $N=9.5\,P$), same chunks ($p=8$) and same TQS tree.
+
+\vspace{1mm}
+Piecewise constant density $\sigma=\sum_j \sigma_j\,\varphi_j$, \ $\varphi_j$: indicator function of $\Gamma_j$; test with $\varphi_i$:
+\[
+\mathrm{V}\sigma=b,\qquad
+\mathrm{V}_{ij}=\int_{\Gamma_i}\!\int_{\Gamma_j} G_k(x,y)\,|dy|\,|dx|,\qquad
+b_i=-\int_{\Gamma_i}u^{\mathrm{inc}}(x)\,|dx|.
+\]
+\begin{itemize}
+\item $\mathrm{V}$: dense, $N\times N$, complex symmetric ($\mathrm{V}^{\mathsf T}=\mathrm{V}$, not Hermitian)
+\item Quadrature: self and touching panels: $G_k=-\tfrac{1}{2\pi}\log|x-y|+R_k(|x-y|)$ with $R_k$ smooth;
+  the log part is integrated exactly over $\Gamma_j$, the rest by $8$-point Gauss. Other panels: tensor Gauss
+  ($8\times8$ if near, $3\times3$ if the midpoints are $\ge4h$ apart). Entries accurate to $\approx10^{-5}$
+\item $u^{\mathrm{inc}}(x)=e^{ik\,d\cdot x}$, \ $d=(0.8,-0.6)$
+\item Check: $u^s(2.5+0.5i)$ changes by $\le10^{-3}$ when $N$ doubles
+\end{itemize}
+\end{frame}
+
+% --------------------------------------------------------------------------
+% \fieldplot{k}{title}: |u^inc + u^s| on a grid, antenna drawn on top
+\newcommand{\fieldplot}[2]{%
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.98\textwidth, axis equal image, enlargelimits=false,
+  xmin=-2.5, xmax=2.5, ymin=-0.75, ymax=4.25,
+  title={\footnotesize #2}, tick label style={font=\tiny},
+  colormap={vir}{rgb255=(68,1,84) rgb255=(59,82,139) rgb255=(33,145,140) rgb255=(94,201,98) rgb255=(253,231,37)},
+  point meta min=0, point meta max=2.5,
+  colorbar, colorbar style={width=2mm, tick label style={font=\tiny}}]
+\addplot graphics[xmin=-2.5, xmax=2.5, ymin=-0.75, ymax=4.25] {helmholtz_field_k#1.png};
+\draw[white, line width=0.6pt] (axis cs:0,0) -- (axis cs:0,3.5) (axis cs:-1.5,1) -- (axis cs:1.5,1)
+  (axis cs:-1,2) -- (axis cs:1,2) (axis cs:-0.5,3) -- (axis cs:0.5,3);
+\end{axis}
+\end{tikzpicture}}
+
+\begin{frame}{Two test cases: large and small wavelength}
+\small
+Wavelength $\lambda=2\pi/k$; plots: total field $|u^{\mathrm{inc}}+u^s|$, $N=1216$.
+\begin{columns}[T]
+\begin{column}{0.49\textwidth}
+\centering
+\fieldplot{1}{$k=1$: $\lambda\approx6.3$ (easy)}
+
+\vspace{-1mm}
+\scriptsize $\lambda$ larger than $\Gamma$; $400$--$1600$ panels per $\lambda$
+\end{column}
+\begin{column}{0.49\textwidth}
+\centering
+\fieldplot{40}{$k=40$: $\lambda\approx0.16$}
+
+\vspace{-1mm}
+\scriptsize $\Gamma$ (length $9.5$) is $\approx60\lambda$ long; $10$--$40$ panels per $\lambda$
+\end{column}
+\end{columns}
+\end{frame}
+
+% --------------------------------------------------------------------------
+\begin{frame}{The algorithm for Helmholtz}
+\small
+\begin{algorithm}[H]
+\caption{TQS-preconditioned GMRES for $\mathrm{V}\sigma=b$}
+\begin{algorithmic}[1]
+\State Build panels, chunks and tree (as before)
+\State Build the TQS approximation $\mathrm{T}_\varepsilon\approx\mathrm{V}$ (complex) at tolerance $\varepsilon$
+\State Preconditioner $\mathrm{M}:=\mathrm{T}_\varepsilon$; apply $\mathrm{M}^{-1}v$ by a ULV solve
+\State GMRES on $\mathrm{V}\mathrm{M}^{-1}y=b$, then $\sigma=\mathrm{M}^{-1}y$
+\Statex \hspace{\algorithmicindent}each mat-vec $\mathrm{V}v$ by a fast multiply
+\end{algorithmic}
+\end{algorithm}
+\vspace{-1mm}
+\begin{block}{Mat-vec}
+\begin{itemize}
+\item Should be an FMM for $G_k$ ($O(N)$ for small $k$; a high-frequency / directional FMM for large $k$), with near-field corrections from the BEM quadrature
+\item \textbf{For now:} dense $\mathrm{V}v$, and $\mathrm{T}_\varepsilon$ built from the dense $\mathrm{V}$. This already tests the framework: the iteration counts do not depend on how $\mathrm{V}v$ is computed (up to the FMM accuracy)
+\end{itemize}
+\end{block}
+its: GMRES iterations until $\|b-\mathrm{V}\sigma_k\|_2\le10^{-10}\|b\|_2$ ($\sigma_0=0$, no restarts).
+\end{frame}
+
+% --------------------------------------------------------------------------
+\begin{frame}{Compression of $\mathrm{V}$ by TQS}
+\small
+$N=2432$ ($304$ nodes), $p=8$. memory $=$ floats in all generators $/\,N^2$.
+\vspace{2mm}
+\begin{center}
+\begin{tabular}{@{}rcccccccc@{}}
+\toprule
+& \multicolumn{4}{c}{$k=1$} & \multicolumn{4}{c}{$k=40$} \\
+\cmidrule(lr){2-5}\cmidrule(l){6-9}
+$\varepsilon$ & $\max\rho$ & mean $\rho$ & $\frac{\|\mathrm{V}-\mathrm{T}_\varepsilon\|_F}{\|\mathrm{V}\|_F}$ & memory
+              & $\max\rho$ & mean $\rho$ & $\frac{\|\mathrm{V}-\mathrm{T}_\varepsilon\|_F}{\|\mathrm{V}\|_F}$ & memory \\
+\midrule
+$10^{-2}$  & 4  & 2.7  & $2.7\cdot10^{-2}$  & 0.9\,\% & 28 & 10.3 & $1.7\cdot10^{-2}$  & 3.6\,\% \\
+$10^{-4}$  & 13 & 6.7  & $3.2\cdot10^{-4}$  & 2.0\,\% & 36 & 14.8 & $1.7\cdot10^{-4}$  & 5.8\,\% \\
+$10^{-6}$  & 21 & 10.5 & $3.1\cdot10^{-6}$  & 3.4\,\% & 44 & 18.7 & $1.7\cdot10^{-6}$  & 8.1\,\% \\
+$10^{-8}$  & 29 & 14.2 & $3.2\cdot10^{-8}$  & 5.1\,\% & 51 & 22.5 & $1.7\cdot10^{-8}$  & 10.6\,\% \\
+$10^{-10}$ & 37 & 17.9 & $3.0\cdot10^{-10}$ & 7.2\,\% & 58 & 25.9 & $1.6\cdot10^{-10}$ & 13.3\,\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{itemize}
+\item $k=1$: like the model problem ($\max\rho$ grows by $\approx4$ per decade of $\varepsilon$)
+\item $k=40$: $\max\rho$ larger by $\approx21$--$24$ (oscillations); growth per decade of $\varepsilon$ about the same
+\item Memory: complex entries, counted as for the model problem
+\end{itemize}
+\end{frame}
+
+% --------------------------------------------------------------------------
+\begin{frame}{GMRES iterations}
+\small
+\begin{center}
+\begin{tabular}{@{}rrrrrccc@{}}
+\toprule
+& & & & & \multicolumn{3}{c}{TQS: its ($\max\rho$)} \\
+\cmidrule(l){6-8}
+$k$ & $N$ & panels/$\lambda$ & $\operatorname{cond}(\mathrm{V})$ & none & $\varepsilon=10^{-2}$ & $\varepsilon=10^{-4}$ & $\varepsilon=10^{-8}$ \\
+\midrule
+1  & 608  & 402  & $8.5\cdot10^{2}$ & 64  & 13 (4)  & 4 (12) & 2 (26) \\
+1  & 1216 & 804  & $1.7\cdot10^{3}$ & 79  & 16 (4)  & 4 (13) & 2 (27) \\
+1  & 2432 & 1608 & $3.4\cdot10^{3}$ & 97  & 20 (4)  & 5 (13) & 2 (29) \\
+\midrule
+40 & 608  & 10   & $5.9\cdot10^{1}$ & 111 & 7 (28)  & 3 (35) & 2 (47) \\
+40 & 1216 & 20   & $1.2\cdot10^{2}$ & 133 & 9 (28)  & 3 (35) & 2 (49) \\
+40 & 2432 & 40   & $2.5\cdot10^{2}$ & 159 & 11 (28) & 4 (36) & 2 (51) \\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{itemize}
+\item $\operatorname{cond}(\mathrm{V})\sim N$ (first kind); without preconditioner the iterations grow with $N$ and with $k$
+\item TQS, $\varepsilon=10^{-4}$: $3$--$5$ iterations for both wavelengths
+\item $\|\mathrm{V}-\mathrm{T}_\varepsilon\|_2/\|\mathrm{V}\|_2\approx\varepsilon$ in all cases
+\end{itemize}
+\end{frame}
+
+% --------------------------------------------------------------------------
+\begin{frame}{Convergence history ($N=1216$, TQS $\varepsilon=10^{-4}$)}
+\centering
+\begin{tikzpicture}
+\begin{semilogyaxis}[
+  width=0.82\textwidth, height=0.62\textheight,
+  xlabel={GMRES iteration}, ylabel={$\|b-\mathrm{V}\sigma_k\|/\|b\|$},
+  ymin=1e-11, ymax=2, xmin=0, xmax=140,
+  legend pos=north east, legend style={font=\scriptsize}, legend cell align=left,
+  unbounded coords=jump, grid=major, grid style={gray!20}]
+\addplot[rest, thick, dashed] table[x=it,y=none_k1] {helmholtz_gmres_history.dat};
+\addplot[sub, thick, dashed] table[x=it,y=none_k40] {helmholtz_gmres_history.dat};
+\addplot[rest, thick, mark=*, mark size=1pt] table[x=it,y=tqs_k1] {helmholtz_gmres_history.dat};
+\addplot[sub, thick, mark=*, mark size=1pt] table[x=it,y=tqs_k40] {helmholtz_gmres_history.dat};
+\legend{{$k=1$, none}, {$k=40$, none}, {$k=1$, TQS ($\max\rho=13$)}, {$k=40$, TQS ($\max\rho=35$)}}
 \end{semilogyaxis}
 \end{tikzpicture}
 \end{frame}
@@ -482,14 +638,15 @@ TQS, $\varepsilon=10^{-8}$ & 24--27 & $7.6\cdot10^{-9}$ & 2 & $5.1\cdot10^{-9}$ 
 \textbf{Takeaways}
 \begin{itemize}
 \item The antenna is a natural TQS tree; $\max\rho$ grows like $\log N$
-\item TQS preconditioner ($\varepsilon=10^{-4}$, $\max\rho=10$): $104\to9$ GMRES iterations at $N=1216$
-\item Block Jacobi does not help
+\item Model problem: TQS preconditioner ($\varepsilon=10^{-4}$, $\max\rho=10$): $104\to9$ GMRES iterations at $N=1216$
+\item Helmholtz, Galerkin BEM: TQS preconditioner ($\varepsilon=10^{-4}$): $\le5$ iterations for $k=1$ and $k=40$;
+  small wavelength costs larger ranks ($\max\rho\approx36$ vs.\ $13$), not more iterations
 \end{itemize}
 \textbf{Next steps}
 \begin{enumerate}
-\item Build $\mathrm{T}_\varepsilon$ from the kernel, without dense $\mathrm{A}$
-\item TQS mat-vec in the Krylov loop; wall-clock times
-\item Helmholtz kernel $G_k$ on the same antenna
+\item FMM mat-vec for $\mathrm{V}$ in the Krylov loop; wall-clock times
+\item Build $\mathrm{T}_\varepsilon$ from the kernel (or from the FMM), without dense $\mathrm{K}$ or $\mathrm{V}$
+\item Rank growth with $k$ at fixed panels per wavelength
 \item Leaf-oriented tree; higher order quadrature
 \end{enumerate}
 \end{frame}

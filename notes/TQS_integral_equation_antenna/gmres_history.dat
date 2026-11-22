@@ -1,137 +1,106 @@
-it none jacobi tqs1e-02 tqs1e-04 tqs1e-08
-0 1.000e+00 1.000e+00 1.000e+00 1.000e+00 1.000e+00
-1 9.720e-02 9.720e-02 1.526e-02 1.647e-04 1.509e-08
-2 2.715e-02 2.732e-02 1.473e-02 1.036e-05 2.316e-13
-3 2.026e-02 2.046e-02 4.372e-03 1.621e-06 nan
-4 1.207e-02 1.231e-02 3.367e-03 2.513e-07 nan
-5 6.004e-03 6.363e-03 2.725e-03 3.930e-08 nan
-6 4.034e-03 4.431e-03 1.060e-03 7.399e-09 nan
-7 2.724e-03 3.251e-03 3.519e-04 1.718e-09 nan
-8 1.892e-03 2.620e-03 1.777e-04 2.833e-10 nan
-9 1.398e-03 2.320e-03 9.404e-05 5.379e-11 nan
-10 1.122e-03 2.255e-03 4.588e-05 nan nan
-11 8.590e-04 2.255e-03 2.780e-05 nan nan
-12 6.714e-04 2.117e-03 2.192e-05 nan nan
-13 5.442e-04 1.806e-03 1.675e-05 nan nan
-14 4.612e-04 1.585e-03 1.024e-05 nan nan
-15 3.720e-04 1.378e-03 5.464e-06 nan nan
-16 3.378e-04 1.346e-03 3.449e-06 nan nan
-17 3.055e-04 1.342e-03 2.313e-06 nan nan
-18 2.575e-04 1.294e-03 1.720e-06 nan nan
-19 2.180e-04 1.047e-03 8.871e-07 nan nan
-20 1.835e-04 7.985e-04 5.398e-07 nan nan
-21 1.646e-04 7.660e-04 2.658e-07 nan nan
-22 1.400e-04 7.589e-04 1.583e-07 nan nan
-23 1.211e-04 6.001e-04 9.619e-08 nan nan
-24 1.126e-04 4.849e-04 5.842e-08 nan nan
-25 1.070e-04 4.627e-04 2.712e-08 nan nan
-26 9.255e-05 4.532e-04 1.473e-08 nan nan
-27 8.029e-05 4.104e-04 1.007e-08 nan nan
-28 6.952e-05 3.000e-04 7.217e-09 nan nan
-29 6.190e-05 2.170e-04 5.231e-09 nan nan
-30 5.365e-05 2.119e-04 3.113e-09 nan nan
-31 4.770e-05 1.901e-04 1.845e-09 nan nan
-32 4.563e-05 1.668e-04 1.141e-09 nan nan
-33 3.967e-05 1.606e-04 6.821e-10 nan nan
-34 3.473e-05 1.560e-04 3.550e-10 nan nan
-35 2.974e-05 1.552e-04 1.863e-10 nan nan
-36 2.861e-05 1.509e-04 7.935e-11 nan nan
-37 2.507e-05 1.508e-04 nan nan nan
-38 2.188e-05 1.508e-04 nan nan nan
-39 1.879e-05 1.437e-04 nan nan nan
-40 1.609e-05 1.268e-04 nan nan nan
-41 1.399e-05 1.268e-04 nan nan nan
-42 1.175e-05 9.404e-05 nan nan nan
-43 1.128e-05 7.400e-05 nan nan nan
-44 9.528e-06 7.287e-05 nan nan nan
-45 8.099e-06 7.286e-05 nan nan nan
-46 7.103e-06 5.577e-05 nan nan nan
-47 6.744e-06 5.428e-05 nan nan nan
-48 5.751e-06 5.115e-05 nan nan nan
-49 4.839e-06 4.954e-05 nan nan nan
-50 4.111e-06 4.953e-05 nan nan nan
-51 3.594e-06 4.796e-05 nan nan nan
-52 2.981e-06 4.649e-05 nan nan nan
-53 2.526e-06 4.583e-05 nan nan nan
-54 2.131e-06 3.948e-05 nan nan nan
-55 1.888e-06 3.565e-05 nan nan nan
-56 1.723e-06 3.033e-05 nan nan nan
-57 1.448e-06 2.163e-05 nan nan nan
-58 1.198e-06 2.064e-05 nan nan nan
-59 1.006e-06 2.063e-05 nan nan nan
-60 8.162e-07 1.769e-05 nan nan nan
-61 7.275e-07 1.719e-05 nan nan nan
-62 6.398e-07 1.680e-05 nan nan nan
-63 5.213e-07 1.643e-05 nan nan nan
-64 4.191e-07 1.638e-05 nan nan nan
-65 3.430e-07 1.296e-05 nan nan nan
-66 2.792e-07 1.188e-05 nan nan nan
-67 2.372e-07 9.222e-06 nan nan nan
-68 2.163e-07 8.370e-06 nan nan nan
-69 1.738e-07 6.499e-06 nan nan nan
-70 1.378e-07 6.161e-06 nan nan nan
-71 1.184e-07 5.345e-06 nan nan nan
-72 1.022e-07 5.253e-06 nan nan nan
-73 8.215e-08 5.248e-06 nan nan nan
-74 6.661e-08 4.734e-06 nan nan nan
-75 5.375e-08 4.733e-06 nan nan nan
-76 4.201e-08 4.116e-06 nan nan nan
-77 3.302e-08 3.138e-06 nan nan nan
-78 2.665e-08 3.049e-06 nan nan nan
-79 2.263e-08 1.985e-06 nan nan nan
-80 1.970e-08 1.960e-06 nan nan nan
-81 1.586e-08 1.727e-06 nan nan nan
-82 1.283e-08 1.718e-06 nan nan nan
-83 1.053e-08 1.594e-06 nan nan nan
-84 9.321e-09 1.443e-06 nan nan nan
-85 7.685e-09 1.000e-06 nan nan nan
-86 6.001e-09 8.417e-07 nan nan nan
-87 4.632e-09 6.780e-07 nan nan nan
-88 3.648e-09 6.245e-07 nan nan nan
-89 2.827e-09 5.808e-07 nan nan nan
-90 2.481e-09 5.700e-07 nan nan nan
-91 1.982e-09 5.210e-07 nan nan nan
-92 1.533e-09 3.556e-07 nan nan nan
-93 1.198e-09 3.217e-07 nan nan nan
-94 9.201e-10 2.194e-07 nan nan nan
-95 8.133e-10 1.869e-07 nan nan nan
-96 6.370e-10 1.813e-07 nan nan nan
-97 4.684e-10 1.391e-07 nan nan nan
-98 3.616e-10 1.385e-07 nan nan nan
-99 2.740e-10 1.138e-07 nan nan nan
-100 2.188e-10 8.765e-08 nan nan nan
-101 1.900e-10 5.901e-08 nan nan nan
-102 1.425e-10 5.722e-08 nan nan nan
-103 1.067e-10 4.567e-08 nan nan nan
-104 8.068e-11 4.442e-08 nan nan nan
-105 nan 3.862e-08 nan nan nan
-106 nan 3.776e-08 nan nan nan
-107 nan 2.128e-08 nan nan nan
-108 nan 2.071e-08 nan nan nan
-109 nan 1.738e-08 nan nan nan
-110 nan 1.424e-08 nan nan nan
-111 nan 1.279e-08 nan nan nan
-112 nan 1.187e-08 nan nan nan
-113 nan 7.570e-09 nan nan nan
-114 nan 5.440e-09 nan nan nan
-115 nan 5.281e-09 nan nan nan
-116 nan 3.411e-09 nan nan nan
-117 nan 2.682e-09 nan nan nan
-118 nan 2.465e-09 nan nan nan
-119 nan 2.367e-09 nan nan nan
-120 nan 1.726e-09 nan nan nan
-121 nan 1.200e-09 nan nan nan
-122 nan 1.198e-09 nan nan nan
-123 nan 8.211e-10 nan nan nan
-124 nan 6.591e-10 nan nan nan
-125 nan 6.319e-10 nan nan nan
-126 nan 3.822e-10 nan nan nan
-127 nan 3.805e-10 nan nan nan
-128 nan 3.167e-10 nan nan nan
-129 nan 3.158e-10 nan nan nan
-130 nan 2.245e-10 nan nan nan
-131 nan 2.026e-10 nan nan nan
-132 nan 1.717e-10 nan nan nan
-133 nan 1.639e-10 nan nan nan
-134 nan 1.265e-10 nan nan nan
-135 nan 9.565e-11 nan nan nan
+it none tqs1e-02 tqs1e-04 tqs1e-08
+0 1.000e+00 1.000e+00 1.000e+00 1.000e+00
+1 9.720e-02 1.526e-02 1.647e-04 1.509e-08
+2 2.715e-02 1.473e-02 1.036e-05 2.316e-13
+3 2.026e-02 4.372e-03 1.621e-06 nan
+4 1.207e-02 3.367e-03 2.513e-07 nan
+5 6.004e-03 2.725e-03 3.930e-08 nan
+6 4.034e-03 1.060e-03 7.399e-09 nan
+7 2.724e-03 3.519e-04 1.718e-09 nan
+8 1.892e-03 1.777e-04 2.833e-10 nan
+9 1.398e-03 9.404e-05 5.379e-11 nan
+10 1.122e-03 4.588e-05 nan nan
+11 8.590e-04 2.780e-05 nan nan
+12 6.714e-04 2.192e-05 nan nan
+13 5.442e-04 1.675e-05 nan nan
+14 4.612e-04 1.024e-05 nan nan
+15 3.720e-04 5.464e-06 nan nan
+16 3.378e-04 3.449e-06 nan nan
+17 3.055e-04 2.313e-06 nan nan
+18 2.575e-04 1.720e-06 nan nan
+19 2.180e-04 8.871e-07 nan nan
+20 1.835e-04 5.398e-07 nan nan
+21 1.646e-04 2.658e-07 nan nan
+22 1.400e-04 1.583e-07 nan nan
+23 1.211e-04 9.619e-08 nan nan
+24 1.126e-04 5.842e-08 nan nan
+25 1.070e-04 2.712e-08 nan nan
+26 9.255e-05 1.473e-08 nan nan
+27 8.029e-05 1.007e-08 nan nan
+28 6.952e-05 7.217e-09 nan nan
+29 6.190e-05 5.231e-09 nan nan
+30 5.365e-05 3.113e-09 nan nan
+31 4.770e-05 1.845e-09 nan nan
+32 4.563e-05 1.141e-09 nan nan
+33 3.967e-05 6.821e-10 nan nan
+34 3.473e-05 3.550e-10 nan nan
+35 2.974e-05 1.863e-10 nan nan
+36 2.861e-05 7.935e-11 nan nan
+37 2.507e-05 nan nan nan
+38 2.188e-05 nan nan nan
+39 1.879e-05 nan nan nan
+40 1.609e-05 nan nan nan
+41 1.399e-05 nan nan nan
+42 1.175e-05 nan nan nan
+43 1.128e-05 nan nan nan
+44 9.528e-06 nan nan nan
+45 8.099e-06 nan nan nan
+46 7.103e-06 nan nan nan
+47 6.744e-06 nan nan nan
+48 5.751e-06 nan nan nan
+49 4.839e-06 nan nan nan
+50 4.111e-06 nan nan nan
+51 3.594e-06 nan nan nan
+52 2.981e-06 nan nan nan
+53 2.526e-06 nan nan nan
+54 2.131e-06 nan nan nan
+55 1.888e-06 nan nan nan
+56 1.723e-06 nan nan nan
+57 1.448e-06 nan nan nan
+58 1.198e-06 nan nan nan
+59 1.006e-06 nan nan nan
+60 8.162e-07 nan nan nan
+61 7.275e-07 nan nan nan
+62 6.398e-07 nan nan nan
+63 5.213e-07 nan nan nan
+64 4.191e-07 nan nan nan
+65 3.430e-07 nan nan nan
+66 2.792e-07 nan nan nan
+67 2.372e-07 nan nan nan
+68 2.163e-07 nan nan nan
+69 1.738e-07 nan nan nan
+70 1.378e-07 nan nan nan
+71 1.184e-07 nan nan nan
+72 1.022e-07 nan nan nan
+73 8.215e-08 nan nan nan
+74 6.661e-08 nan nan nan
+75 5.375e-08 nan nan nan
+76 4.201e-08 nan nan nan
+77 3.302e-08 nan nan nan
+78 2.665e-08 nan nan nan
+79 2.263e-08 nan nan nan
+80 1.970e-08 nan nan nan
+81 1.586e-08 nan nan nan
+82 1.283e-08 nan nan nan
+83 1.053e-08 nan nan nan
+84 9.321e-09 nan nan nan
+85 7.685e-09 nan nan nan
+86 6.001e-09 nan nan nan
+87 4.632e-09 nan nan nan
+88 3.648e-09 nan nan nan
+89 2.827e-09 nan nan nan
+90 2.481e-09 nan nan nan
+91 1.982e-09 nan nan nan
+92 1.533e-09 nan nan nan
+93 1.198e-09 nan nan nan
+94 9.201e-10 nan nan nan
+95 8.133e-10 nan nan nan
+96 6.370e-10 nan nan nan
+97 4.684e-10 nan nan nan
+98 3.616e-10 nan nan nan
+99 2.740e-10 nan nan nan
+100 2.188e-10 nan nan nan
+101 1.900e-10 nan nan nan
+102 1.425e-10 nan nan nan
+103 1.067e-10 nan nan nan
+104 8.068e-11 nan nan nan
